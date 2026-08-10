@@ -2,7 +2,7 @@
 
 MathQuest 7 is an iPad-friendly, browser-based Grade 7 math adventure game. It is designed to make practice feel like a quest-and-building game rather than a worksheet, while gradually increasing difficulty as the learner demonstrates mastery.
 
-The current curriculum structure is organized around the broad North Carolina Grade 7 mathematics domains used by Union County Public Schools and the North Carolina Standard Course of Study.
+The current curriculum structure is organized around the broad Grade 7 mathematics domains used by Union County Public Schools and the Standard Course of Study.
 
 ## Game features
 
