@@ -20,6 +20,10 @@ The CI workflow enforces this rule for these production-facing files:
 
 Documentation-only, test-only, and CI-only changes do not require a version bump unless they also change deployed application behavior.
 
+## Service worker cache must track the version
+
+The service worker (`sw.js`) is cache-first for assets, so a cache name that does not change will keep serving old files to returning users and hide the update. Therefore, on every deployed change, set the `CACHE` constant in `sw.js` to `mathquest7-v<version>` matching `version.json`. CI enforces this: the build fails unless `sw.js` contains `mathquest7-v<version>`. `version.json` itself is served network-first by the service worker so the in-app version badge always reflects the deployed version.
+
 ## Semantic version guidance
 
 Given a version `MAJOR.MINOR.PATCH`:

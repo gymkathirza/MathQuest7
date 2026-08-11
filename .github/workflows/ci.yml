@@ -23,6 +23,17 @@ jobs:
       - name: Curriculum smoke tests
         run: node tests/smoke.mjs
 
+      - name: Service worker cache matches app version
+        shell: bash
+        run: |
+          set -euo pipefail
+          V="$(node -e "console.log(require('./version.json').version)")"
+          if ! grep -q "mathquest7-v$V" sw.js; then
+            echo "::error::sw.js CACHE must be 'mathquest7-v$V' so clients receive updates. Bump the CACHE constant in sw.js to match version.json."
+            exit 1
+          fi
+          echo "Service worker cache is mathquest7-v$V"
+
       - name: Required static files
         run: |
           test -f index.html
