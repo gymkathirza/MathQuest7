@@ -1,0 +1,46 @@
+---
+description: MathQuest 7 repo conventions — keep docs (README/STATE/MEMORY) current, follow the folder structure, and version every deployed change. Applies to all changes.
+alwaysApply: true
+---
+
+# MathQuest 7 maintenance rules
+
+Follow these for **every** change in this repository. `AGENTS.md` and `docs/` hold the full detail; this rule is the always-on summary.
+
+## 1. Keep documentation in sync (required)
+
+Whenever you change behavior, structure, or deployment, update the docs in the **same** change:
+
+- `docs/STATE.md` — the current snapshot (version, what's implemented, architecture, open gaps, next steps). Update after any material change.
+- `docs/MEMORY.md` — durable product/engineering decisions meant to last across releases. Update only when a lasting decision is made or changed; do not add transient status.
+- `README.md` — public overview. Update when user-facing features, how-to-play, project structure, or the live/deployment link change.
+
+Never put secrets, credentials, real learner data, PII, or hidden reasoning in any repo file.
+
+## 2. Respect the folder structure
+
+Put new files in the matching location; do not dump everything at the repo root:
+
+- Web root (must stay at repo root for the GitHub Pages URL and service-worker scope): `index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`.
+- `css/` — stylesheets.
+- `js/` — ES modules and app logic. Import siblings with `./name.mjs`; reference web-root files from a module with `new URL('../file', import.meta.url)` (e.g. `../version.json`, `../sw.js`).
+- `docs/` — documentation and contracts.
+- `tests/` — automated tests.
+- `.github/` — CI/deploy workflows; `.cursor/` — Cloud Agent environment and rules.
+
+Do NOT move the web-root PWA files into subfolders — it breaks the deployed URL, the service-worker scope, and relative asset paths.
+
+## 3. Version every deployed change
+
+Per `docs/VERSIONING.md`, any change to a deployed app file must bump `version.json` (semver) in the same PR, and the UI must keep displaying that version. Deployed files: `index.html`, `css/app.css`, `js/app.js`, `js/curriculum.mjs`, `js/daily-session.mjs`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`. When adding a new deployed file, also register it in `sw.js` `ASSETS`, the checks/version-guard pattern in `.github/workflows/ci.yml`, and `docs/VERSIONING.md`. Bump the `sw.js` `CACHE` name when cached asset paths change.
+
+## 4. Test before opening/merging
+
+Run and keep green:
+
+```bash
+node --check js/app.js
+node tests/smoke.mjs
+```
+
+Do not weaken or delete tests to pass CI unless the requirement itself intentionally changed and the source-of-truth docs are updated in the same change. Preserve the canonical invariants (10-question 3/4/3 benchmark, NC contexts, KCC/named strategies, 80% + exit-ticket gate, unique answer choices).

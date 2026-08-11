@@ -5,7 +5,7 @@
 
 ## Validation
 
-- [ ] `node --check app.js`
+- [ ] `node --check js/app.js`
 - [ ] `node tests/smoke.mjs`
 - [ ] GitHub Actions validation passed
 

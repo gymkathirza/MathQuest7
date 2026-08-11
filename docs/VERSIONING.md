@@ -9,10 +9,10 @@ Any pull request that changes a deployed MathQuest application file must also up
 The CI workflow enforces this rule for these production-facing files:
 
 - `index.html`
-- `app.css`
-- `app.js`
-- `curriculum.mjs`
-- `daily-session.mjs`
+- `css/app.css`
+- `js/app.js`
+- `js/curriculum.mjs`
+- `js/daily-session.mjs`
 - `sw.js`
 - `manifest.webmanifest`
 - `icon.svg`

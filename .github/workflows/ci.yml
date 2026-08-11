@@ -18,7 +18,7 @@ jobs:
           fetch-depth: 0
 
       - name: JavaScript syntax
-        run: node --check app.js
+        run: node --check js/app.js
 
       - name: Curriculum smoke tests
         run: node tests/smoke.mjs
@@ -26,9 +26,10 @@ jobs:
       - name: Required static files
         run: |
           test -f index.html
-          test -f app.css
-          test -f app.js
-          test -f curriculum.mjs
+          test -f css/app.css
+          test -f js/app.js
+          test -f js/curriculum.mjs
+          test -f js/daily-session.mjs
           test -f version.json
           test -f sw.js
 
@@ -40,7 +41,7 @@ jobs:
           BASE="origin/${{ github.base_ref }}"
           CHANGED="$(git diff --name-only "$BASE"...HEAD)"
 
-          DEPLOYED_PATTERN='^(index\.html|app\.css|app\.js|curriculum\.mjs|daily-session\.mjs|sw\.js|manifest\.webmanifest|icon\.svg|config\.js)$'
+          DEPLOYED_PATTERN='^(index\.html|css/app\.css|js/app\.js|js/curriculum\.mjs|js/daily-session\.mjs|sw\.js|manifest\.webmanifest|icon\.svg|config\.js)$'
 
           if echo "$CHANGED" | grep -Eq "$DEPLOYED_PATTERN"; then
             if ! echo "$CHANGED" | grep -qx 'version.json'; then

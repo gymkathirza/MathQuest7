@@ -3,7 +3,7 @@
 The v0.7 branch includes a zero-dependency smoke test suite.
 
 ```bash
-node --check app.js
+node --check js/app.js
 node tests/smoke.mjs
 ```
 
