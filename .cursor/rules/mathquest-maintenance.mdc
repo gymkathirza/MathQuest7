@@ -32,7 +32,9 @@ Do NOT move the web-root PWA files into subfolders — it breaks the deployed UR
 
 ## 3. Version every deployed change
 
-Per `docs/VERSIONING.md`, any change to a deployed app file must bump `version.json` (semver) in the same PR, and the UI must keep displaying that version. Deployed files: `index.html`, `css/app.css`, `js/app.js`, `js/curriculum.mjs`, `js/daily-session.mjs`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`. When adding a new deployed file, also register it in `sw.js` `ASSETS`, the checks/version-guard pattern in `.github/workflows/ci.yml`, and `docs/VERSIONING.md`. Bump the `sw.js` `CACHE` name when cached asset paths change.
+Per `docs/VERSIONING.md`, any change to a deployed app file must bump `version.json` (semver) in the same PR, and the UI must keep displaying that version. Deployed files: `index.html`, `css/app.css`, `js/app.js`, `js/curriculum.mjs`, `js/daily-session.mjs`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`. When adding a new deployed file, also register it in `sw.js` `ASSETS`, the checks/version-guard pattern in `.github/workflows/ci.yml`, and `docs/VERSIONING.md`.
+
+**Service worker cache is version-pinned (critical).** The service worker is cache-first for assets, so a stale cache silently hides updates from returning users. On EVERY deployed change, set `sw.js` `CACHE` to `mathquest7-v<version>` matching `version.json`. CI enforces this (`sw.js` must contain `mathquest7-v<version>`). `version.json` is served network-first by the SW so the version badge is always accurate; keep it that way.
 
 ## 4. Test before opening/merging
 

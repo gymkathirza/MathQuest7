@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.11.0`
-- Release label: `repo-restructure`
+- Version: `0.12.0`
+- Release label: `day-tile-nav-badges`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
@@ -39,7 +39,8 @@ Current design includes:
 - guided interactive practice
 - independent practice delivered as the canonical 10-question 3/4/3 daily benchmark (level-labeled Level 1/2/3, NC-context word problems, no-calculator reminder, strategy hints)
 - itemized error-analysis summary after each benchmark set
-- roadmap navigation: any unlocked day (current or previously completed) is clickable to revisit/replay; locked future days stay gated
+- roadmap navigation: any unlocked day (current or previously completed) is clickable to revisit/replay; locked future days stay gated. The "Start / Continue Today" button shows the target day number, e.g. "Start / Continue Today (Day 2)"
+- header badges: XP, streak, elapsed-minutes timer, and app version, each with a hover/focus help tooltip. The version badge fetches `version.json` network-first through the service worker so it always reflects the deployed version
 - hover/focus helper tooltips on the header badges (XP, streak, timer, version), hero buttons, phase steps, and day tiles
 - animated conceptual illustrations on Learn pages (number-line slide for integer addition, Tug-of-War for different signs, sign-rule cycle for signed multiply/divide), with a prefers-reduced-motion fallback
 - healthy-break session timer: the header shows elapsed practice minutes only (no "/60:00" countdown, to avoid rushing); a dynamic hover tooltip encourages breaks. Every 20 minutes of active practice a top toast appears and a full-screen break overlay asks the learner to choose a 5/7/10-minute screen break, then freezes the UI with a countdown (20-20-20 rule, move/hydrate prompts) before unlocking. Break time is excluded from the practice-minute counter. Guidance is based on CDC/AAP screen-break recommendations. The goal is ~60 min of practice per concept with regular active breaks, not continuous screen time.
@@ -179,4 +180,4 @@ A new agent should:
 
 ## Last state refresh
 
-This state snapshot was refreshed at production version `0.11.0` (`repo-restructure`): reorganized the repo into `css/`, `js/`, and `docs/` (web-root PWA files intentionally kept at root), added an always-on maintenance rule at `.cursor/rules/mathquest-maintenance.mdc`, and added the live GitHub Pages link to the README. Behavior is unchanged from `0.10.0` (`healthy-break-timer`: elapsed-minutes practice timer, dynamic timer tooltip, recurring 20-minute break toast, and choose-your-length 5/7/10-minute UI-freezing break overlay grounded in CDC/AAP screen-break guidance), which built on `0.9.0` (completed-day replay navigation, hover tooltips, Learn-page animations) and `0.8.0` (UI wired to the canonical 3/4/3 daily benchmark).
+This state snapshot was refreshed at production version `0.12.0` (`day-tile-nav-badges`): the "Start / Continue Today" button now shows the target day number; header tooltips/badges hardened; and — the root cause of stale UI for returning users — the service worker now serves `version.json` network-first and its `CACHE` name is pinned to the app version with a CI guard (`sw.js` must contain `mathquest7-v<version>`), so every deployed change reliably reaches clients. Day-tile click-to-open (any unlocked/completed day) was already present since `0.9.0` and is retained. It builds on `0.11.0` (`repo-restructure`): reorganized the repo into `css/`, `js/`, and `docs/` (web-root PWA files intentionally kept at root), added an always-on maintenance rule at `.cursor/rules/mathquest-maintenance.mdc`, and added the live GitHub Pages link to the README. Behavior is otherwise unchanged from `0.10.0` (`healthy-break-timer`: elapsed-minutes practice timer, dynamic timer tooltip, recurring 20-minute break toast, and choose-your-length 5/7/10-minute UI-freezing break overlay grounded in CDC/AAP screen-break guidance), which built on `0.9.0` (completed-day replay navigation, hover tooltips, Learn-page animations) and `0.8.0` (UI wired to the canonical 3/4/3 daily benchmark).

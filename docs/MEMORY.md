@@ -143,6 +143,8 @@ The product version is visible in the UI and sourced from `version.json`.
 
 Every deployed app behavior/file change must be versioned. `VERSIONING.md` and CI define/enforce the exact rule.
 
+Because the service worker is cache-first, the `sw.js` `CACHE` name must be pinned to `mathquest7-v<version>` on every deployed change, or returning users keep seeing a stale build; CI enforces this and `version.json` is served network-first so the version badge is always accurate. This was a real defect: several releases shipped without changing the cache name, so updates did not reach already-visited browsers.
+
 ## Engineering philosophy
 
 Important product requirements should live in the repository and, where possible, be enforced with tests. Do not depend on old chat conversations as the only record of a requirement.
