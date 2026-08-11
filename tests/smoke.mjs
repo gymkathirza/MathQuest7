@@ -1,6 +1,16 @@
 import assert from 'node:assert/strict';
+import {readFileSync} from 'node:fs';
+import {fileURLToPath} from 'node:url';
+import {dirname,join} from 'node:path';
 import {TOPICS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,canTakeExit,updateMastery} from '../curriculum.mjs';
 import {generateDailyBenchmark,CORE_DAILY_COUNT,LEVEL_COUNTS,NC_LOCATIONS} from '../daily-session.mjs';
+
+const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
+const appSource=readFileSync(join(ROOT,'app.js'),'utf8');
+assert.ok(/from ['"]\.\/daily-session\.mjs['"]/.test(appSource),'UI (app.js) must import the canonical daily-session benchmark module');
+assert.ok(/generateDailyBenchmark\s*\(/.test(appSource),'UI (app.js) must call generateDailyBenchmark so practice uses the 3/4/3 benchmark');
+for(const label of ['Level 1','Level 2','Level 3'])assert.ok(appSource.includes(label),`UI must label practice tiers (${label})`);
+assert.ok(/No calculator/i.test(appSource),'UI must show the no-calculator benchmark instruction');
 
 assert.equal(TOPICS.length,20,'Expected 20 daily topics');
 assert.equal(PASS_MASTERY,80,'Mastery unlock must remain 80%');
@@ -56,4 +66,4 @@ assert.ok(m>=80);
 m=updateMastery(m,false);
 assert.ok(m<100&&m>=0);
 
-console.log('PASS: 20 topics; 2,000 base questions; 1,000 daily benchmark sets; exact 3/4/3 tiers; NC contexts; KCC; 80%+exit gating; mastery bounds');
+console.log('PASS: 20 topics; 2,000 base questions; 1,000 daily benchmark sets; exact 3/4/3 tiers; NC contexts; KCC; 80%+exit gating; mastery bounds; UI wired to canonical benchmark');
