@@ -1,5 +1,8 @@
 # MathQuest 7
 
+> 🎮 **Wanna try this game running live online from GitHub Pages?**
+> 👉 **[Play MathQuest 7 now →](https://gymkathirza.github.io/MathQuest7/)** — no install needed, works on iPad, phone, Chromebook, Mac, and Windows.
+
 MathQuest 7 is an iPad-friendly, browser-based Grade 7 math adventure game. It is designed to make practice feel like a quest-and-building game rather than a worksheet, while gradually increasing difficulty as the learner demonstrates mastery.
 
 The current curriculum structure is organized around the broad Grade 7 mathematics domains used by Union County Public Schools and the Standard Course of Study.
@@ -251,13 +254,21 @@ To download the project from GitHub:
 3. Choose **Download ZIP**.
 4. Extract the downloaded ZIP archive.
 
-The primary application files are:
+The project is organized by category:
 
-- `index.html` — game interface, logic, question generation, progress saving, and parent dashboard
-- `manifest.webmanifest` — PWA metadata
+- `index.html` — game interface / entry point (kept at the web root)
+- `css/app.css` — styles
+- `js/app.js` — UI flow, session timer/breaks, parent dashboard, progress saving
+- `js/curriculum.mjs` — 20-topic curriculum and per-topic question generators
+- `js/daily-session.mjs` — canonical 10-question 3/4/3 daily benchmark generator
 - `sw.js` — service worker used for offline caching
+- `manifest.webmanifest` — PWA metadata
 - `icon.svg` — application icon
-- `README.md` — documentation
+- `config.js`, `version.json` — public config and the displayed app version
+- `docs/` — documentation and contracts (state, memory, versioning, session/test specs)
+- `tests/smoke.mjs` — zero-dependency automated test suite
+
+The web-root files (`index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`) stay at the repository root because the GitHub Pages URL and the service-worker scope depend on it.
 
 Downloading the files is mainly useful for development or backup. For normal gameplay, use the hosted GitHub Pages URL rather than opening `index.html` directly from the device file manager.
 

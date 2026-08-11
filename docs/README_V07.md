@@ -23,7 +23,7 @@ Problems are generated on-device, so the practice supply is not a fixed question
 Run:
 
 ```bash
-node --check app.js
+node --check js/app.js
 node tests/smoke.mjs
 ```
 

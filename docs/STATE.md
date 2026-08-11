@@ -6,13 +6,25 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.10.0`
-- Release label: `healthy-break-timer`
+- Version: `0.11.0`
+- Release label: `repo-restructure`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
 
 The UI reads `version.json` and should display the current deployed version.
+
+## Repository layout
+
+Files are grouped by category (as of `0.11.0`):
+
+- Web root (kept at repo root for the GitHub Pages URL and service-worker scope): `index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`.
+- `css/` — `app.css`.
+- `js/` — `app.js`, `curriculum.mjs`, `daily-session.mjs` (modules reference web-root files via `new URL('../file', import.meta.url)`).
+- `docs/` — this file plus `MEMORY.md`, `VERSIONING.md`, `TEST_CREATION_BASELINE.md`, `SESSION_GENERATION_SPEC.md`, `session-generation-schema.json`, `README_V07.md`, `REGISTRATION_SETUP.md`, `TESTING.md`.
+- `tests/` — `smoke.mjs`. `.github/` — CI/deploy. `.cursor/` — Cloud Agent environment and always-on rules.
+
+The web app is deployed live via GitHub Pages at `https://gymkathirza.github.io/MathQuest7/`.
 
 ## Current product structure
 
@@ -167,4 +179,4 @@ A new agent should:
 
 ## Last state refresh
 
-This state snapshot was refreshed at production version `0.10.0` (`healthy-break-timer`): replaced the 60-minute countdown with an elapsed-minutes practice timer, added a dynamic timer tooltip, a recurring 20-minute break toast, and a choose-your-length (5/7/10 min) UI-freezing break overlay grounded in CDC/AAP screen-break guidance. It builds on `0.9.0` (completed-day replay navigation, hover tooltips, Learn-page animations) and `0.8.0` (UI wired to the canonical 3/4/3 daily benchmark).
+This state snapshot was refreshed at production version `0.11.0` (`repo-restructure`): reorganized the repo into `css/`, `js/`, and `docs/` (web-root PWA files intentionally kept at root), added an always-on maintenance rule at `.cursor/rules/mathquest-maintenance.mdc`, and added the live GitHub Pages link to the README. Behavior is unchanged from `0.10.0` (`healthy-break-timer`: elapsed-minutes practice timer, dynamic timer tooltip, recurring 20-minute break toast, and choose-your-length 5/7/10-minute UI-freezing break overlay grounded in CDC/AAP screen-break guidance), which built on `0.9.0` (completed-day replay navigation, hover tooltips, Learn-page animations) and `0.8.0` (UI wired to the canonical 3/4/3 daily benchmark).

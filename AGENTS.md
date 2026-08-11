@@ -7,16 +7,31 @@ This repository is the source of truth for MathQuest 7. An AI agent or developer
 Read these files in this order before changing production behavior:
 
 1. `AGENTS.md` — operating rules and development workflow.
-2. `STATE.md` — current implementation/deployment status and known next steps.
-3. `MEMORY.md` — durable product decisions and design intent.
-4. `TEST_CREATION_BASELINE.md` — canonical pedagogy and test-generation rules.
-5. `SESSION_GENERATION_SPEC.md` and `session-generation-schema.json` — machine/human daily-session contract.
-6. `PRIVACY.md` — privacy promises and local-storage architecture.
-7. `VERSIONING.md` — mandatory versioning rules.
+2. `docs/STATE.md` — current implementation/deployment status and known next steps.
+3. `docs/MEMORY.md` — durable product decisions and design intent.
+4. `docs/TEST_CREATION_BASELINE.md` — canonical pedagogy and test-generation rules.
+5. `docs/SESSION_GENERATION_SPEC.md` and `docs/session-generation-schema.json` — machine/human daily-session contract.
+6. `PRIVACY.md` — privacy promises and local-storage architecture (kept at web root because the site links to it).
+7. `docs/VERSIONING.md` — mandatory versioning rules.
 8. `.github/workflows/ci.yml` and `.github/workflows/pages.yml` — validation and deployment behavior.
 9. `tests/` — executable requirements. Tests outrank stale prose when they intentionally encode a newer approved requirement.
+10. `.cursor/rules/mathquest-maintenance.mdc` — always-on repo conventions (structure, docs, versioning) that must be followed for every change.
 
 If documents disagree, stop and reconcile the conflict in the same PR rather than silently choosing one.
+
+## Repository structure
+
+Files are grouped by category. Put new files in the matching location:
+
+- Web root (must stay at repo root for GitHub Pages URL + service-worker scope): `index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`.
+- `css/` — stylesheets (`app.css`).
+- `js/` — ES modules / app logic (`app.js`, `curriculum.mjs`, `daily-session.mjs`). Sibling imports use `./name.mjs`; anything the module needs from the web root (e.g. `version.json`, `sw.js`) is resolved with `new URL('../file', import.meta.url)`.
+- `docs/` — all documentation and contracts (`STATE.md`, `MEMORY.md`, `VERSIONING.md`, `TEST_CREATION_BASELINE.md`, `SESSION_GENERATION_SPEC.md`, `session-generation-schema.json`, `README_V07.md`, `REGISTRATION_SETUP.md`, `TESTING.md`).
+- `tests/` — automated tests (`smoke.mjs`).
+- `.github/` — CI and deployment workflows; `.cursor/` — Cloud Agent environment and rules.
+- `README.md` and `AGENTS.md` stay at repo root.
+
+Do NOT move the web-root PWA files into subfolders: it breaks the deployed URL, the service-worker scope, and relative asset paths. If you add a deployed app file, also add it to `sw.js` `ASSETS`, the CI checks/version-guard pattern in `.github/workflows/ci.yml`, and `docs/VERSIONING.md`.
 
 ## Product mission
 
@@ -149,11 +164,13 @@ Service-worker caching can make an iPad show an older release. Production change
 
 ## State and memory maintenance
 
-`MEMORY.md` stores durable decisions that should remain true across many releases. Do not fill it with transient task status.
+Documentation must be kept current as part of the same change (see also `.cursor/rules/mathquest-maintenance.mdc`):
 
-`STATE.md` stores the current snapshot: version, architecture, what is implemented, open gaps, active operational concerns, and recommended next work. Update it after material merges.
+- `docs/MEMORY.md` stores durable decisions that should remain true across many releases. Do not fill it with transient task status.
+- `docs/STATE.md` stores the current snapshot: version, architecture, what is implemented, open gaps, active operational concerns, and recommended next work. Update it after any material change.
+- `README.md` is the public-facing overview. Update it whenever user-facing capabilities, how-to-play, structure, or the deployment/link change.
 
-Neither file may contain secrets, private learner data, personal credentials, or hidden chain-of-thought/reasoning.
+Neither `docs/MEMORY.md` nor `docs/STATE.md` may contain secrets, private learner data, personal credentials, or hidden chain-of-thought/reasoning.
 
 ## Working principle
 
