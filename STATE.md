@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.7.1`
-- Release label: `session-generation-contract`
+- Version: `0.8.0`
+- Release label: `ui-daily-benchmark`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
@@ -25,7 +25,8 @@ Current design includes:
 - daily warm-up/review
 - concept teaching before assessment
 - guided interactive practice
-- independent generated practice
+- independent practice delivered as the canonical 10-question 3/4/3 daily benchmark (level-labeled Level 1/2/3, NC-context word problems, no-calculator reminder, strategy hints)
+- itemized error-analysis summary after each benchmark set
 - error analysis/remediation
 - exit tickets
 - 80% mastery + exit-ticket progression gate
@@ -52,6 +53,8 @@ Core daily benchmark:
 - total = 10 canonical benchmark questions
 
 Extra parent-requested questions come after those 10 and are generated dynamically.
+
+As of `0.8.0`, the live student UI renders this canonical benchmark directly: `app.js` imports `generateDailyBenchmark` from `daily-session.mjs` and presents the tiered 3/4/3 set with level labels, NC context, strategy hints, a no-calculator reminder, and an end-of-set error analysis. Before `0.8.0`, the UI practice phase generated single one-off single-tier questions and did not consume the canonical generator; that gap is now closed and guarded by a smoke test.
 
 Current approved pedagogy includes Number Line, Tug-of-War, KCC, PEMDAS, common denominators, signed-number rules, unit rates, proportional reasoning, and inverse operations as appropriate to each lesson.
 
@@ -112,6 +115,7 @@ Expected automated invariants include:
 - minimum evidence threshold prevents instant mastery
 - parent practice controls work
 - mastery remains bounded
+- the student UI is wired to the canonical benchmark generator (`app.js` imports and calls `generateDailyBenchmark`, labels Level 1/2/3, and shows the no-calculator instruction)
 
 A prior randomized CI failure exposed duplicate probability distractors; the generator was fixed rather than weakening the uniqueness test. Preserve that invariant.
 
@@ -132,6 +136,7 @@ Any future registration, cloud backup, analytics, notifications, or account syst
 
 High-value next areas discussed:
 
+- day-to-day topic sequencing narrative (Day 1 intro → Day 2 add/subtract → Day 3 multiply/divide, etc.) and a printable/exportable worksheet version of the daily benchmark, to fully match the Gemini tutoring transcript (the tiered 3/4/3 benchmark itself is now implemented in the UI)
 - sequence Pages deployment after successful CI validation
 - richer conceptual animations/manipulatives rather than decorative reaction GIFs
 - deeper daily lesson content and remediation paths
@@ -158,4 +163,4 @@ A new agent should:
 
 ## Last state refresh
 
-This state snapshot was created for repository-native agent handoff at production version `0.7.1`.
+This state snapshot was refreshed at production version `0.8.0` (`ui-daily-benchmark`), when the student UI was wired to render the canonical 3/4/3 daily benchmark from `daily-session.mjs`.
