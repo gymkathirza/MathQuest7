@@ -1,0 +1,28 @@
+name: Validate MathQuest
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  smoke:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+      - name: JavaScript syntax
+        run: node --check app.js
+      - name: Curriculum smoke tests
+        run: node tests/smoke.mjs
+      - name: Required static files
+        run: |
+          test -f index.html
+          test -f app.css
+          test -f app.js
+          test -f curriculum.mjs
+          test -f version.json
+          test -f sw.js
