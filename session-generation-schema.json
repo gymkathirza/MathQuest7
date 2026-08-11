@@ -1,0 +1,55 @@
+{
+  "curriculum_framework": "Union County Public Schools (NC) 7th Grade Standards",
+  "daily_structure_minutes": {
+    "mini_lesson": 15,
+    "practice_problems": 30,
+    "error_analysis_exit_ticket": 15
+  },
+  "lesson_generation_schema": {
+    "day_number": "Integer",
+    "nc_standard": "String (e.g., NC.7.NS.1)",
+    "topic_focus": "String",
+    "mini_lesson": {
+      "rules": ["Array of Strings"],
+      "examples": ["Array of Objects (Problem/Solution)"],
+      "strategies": ["e.g., KCC, PEMDAS, Tug-of-War"]
+    },
+    "practice_session": {
+      "level_1_standard": {
+        "quantity": 3,
+        "description": "Standard numerical problems"
+      },
+      "level_2_complex": {
+        "quantity": 4,
+        "description": "Multi-step, fractions, decimals, exponents, or mixed representations"
+      },
+      "level_3_word_problems": {
+        "quantity": 3,
+        "description": "NC-based real-world application",
+        "location_references": [
+          "Monroe",
+          "Waxhaw",
+          "Indian Trail",
+          "Charlotte",
+          "Marshville",
+          "Weddington",
+          "Union County"
+        ]
+      }
+    },
+    "feedback_protocol": {
+      "grading_style": "Itemized correct/incorrect feedback",
+      "remediation": "Step-by-step breakdown using named strategies",
+      "next_steps": "Topic preview for the following day"
+    }
+  },
+  "agent_rules": {
+    "benchmark_calculator_policy": "No calculator unless explicitly allowed by the lesson",
+    "tone": "Supportive teacher voice",
+    "visual_support": "Use visual explanations and interactive manipulatives when useful",
+    "session_management": "Use 15/30/15 pacing as a target; understanding takes priority over speed",
+    "mastery_unlock_percent": 80,
+    "default_core_problem_count": 10,
+    "extra_practice": "Parents may request more problems; preserve the same topic and gradually vary difficulty"
+  }
+}
