@@ -14,10 +14,15 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+
       - name: JavaScript syntax
         run: node --check app.js
+
       - name: Curriculum smoke tests
         run: node tests/smoke.mjs
+
       - name: Required static files
         run: |
           test -f index.html
@@ -26,3 +31,33 @@ jobs:
           test -f curriculum.mjs
           test -f version.json
           test -f sw.js
+
+      - name: Require version bump for deployed app changes
+        if: github.event_name == 'pull_request'
+        shell: bash
+        run: |
+          set -euo pipefail
+          BASE="origin/${{ github.base_ref }}"
+          CHANGED="$(git diff --name-only "$BASE"...HEAD)"
+
+          DEPLOYED_PATTERN='^(index\.html|app\.css|app\.js|curriculum\.mjs|daily-session\.mjs|sw\.js|manifest\.webmanifest|icon\.svg|config\.js)$'
+
+          if echo "$CHANGED" | grep -Eq "$DEPLOYED_PATTERN"; then
+            if ! echo "$CHANGED" | grep -qx 'version.json'; then
+              echo '::error::Production app files changed, but version.json was not updated.'
+              echo 'Any PR that changes deployed MathQuest files must bump version.json.'
+              exit 1
+            fi
+
+            BASE_VERSION="$(git show "$BASE:version.json" | node -e "let s='';process.stdin.on('data',d=>s+=d).on('end',()=>console.log(JSON.parse(s).version))")"
+            HEAD_VERSION="$(node -e "console.log(require('./version.json').version)")"
+
+            if [ "$BASE_VERSION" = "$HEAD_VERSION" ]; then
+              echo "::error::version.json changed, but version stayed at $HEAD_VERSION."
+              exit 1
+            fi
+
+            echo "Version guard passed: $BASE_VERSION -> $HEAD_VERSION"
+          else
+            echo 'No deployed app files changed; version bump not required.'
+          fi
