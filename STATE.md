@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.8.0`
-- Release label: `ui-daily-benchmark`
+- Version: `0.9.0`
+- Release label: `day-nav-tooltips-animations`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
@@ -27,6 +27,9 @@ Current design includes:
 - guided interactive practice
 - independent practice delivered as the canonical 10-question 3/4/3 daily benchmark (level-labeled Level 1/2/3, NC-context word problems, no-calculator reminder, strategy hints)
 - itemized error-analysis summary after each benchmark set
+- roadmap navigation: any unlocked day (current or previously completed) is clickable to revisit/replay; locked future days stay gated
+- hover/focus helper tooltips on the header badges (XP, streak, timer, version), hero buttons, phase steps, and day tiles
+- animated conceptual illustrations on Learn pages (number-line slide for integer addition, Tug-of-War for different signs, sign-rule cycle for signed multiply/divide), with a prefers-reduced-motion fallback
 - error analysis/remediation
 - exit tickets
 - 80% mastery + exit-ticket progression gate
@@ -163,4 +166,4 @@ A new agent should:
 
 ## Last state refresh
 
-This state snapshot was refreshed at production version `0.8.0` (`ui-daily-benchmark`), when the student UI was wired to render the canonical 3/4/3 daily benchmark from `daily-session.mjs`.
+This state snapshot was refreshed at production version `0.9.0` (`day-nav-tooltips-animations`): added completed-day replay navigation from the roadmap, hover/focus helper tooltips across the header/phase/day UI, and animated conceptual illustrations on Learn pages. It builds on `0.8.0`, which wired the student UI to render the canonical 3/4/3 daily benchmark from `daily-session.mjs`.
