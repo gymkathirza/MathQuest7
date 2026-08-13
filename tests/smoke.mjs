@@ -4,13 +4,41 @@ import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
 import {TOPICS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,canTakeExit,updateMastery} from '../js/curriculum.mjs';
 import {generateDailyBenchmark,CORE_DAILY_COUNT,LEVEL_COUNTS,NC_LOCATIONS} from '../js/daily-session.mjs';
+import {IDLE_PAUSE_MS,todayKey,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,activeElapsedMs} from '../js/practice-timer.mjs';
 
 const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
 const appSource=readFileSync(join(ROOT,'js','app.js'),'utf8');
 assert.ok(/from ['"]\.\/daily-session\.mjs['"]/.test(appSource),'UI (app.js) must import the canonical daily-session benchmark module');
+assert.ok(/from ['"]\.\/practice-timer\.mjs['"]/.test(appSource),'UI (app.js) must import the active practice timer module');
 assert.ok(/generateDailyBenchmark\s*\(/.test(appSource),'UI (app.js) must call generateDailyBenchmark so practice uses the 3/4/3 benchmark');
+assert.ok(/visibilitychange/.test(appSource),'UI must pause practice time when the tab is hidden');
+assert.ok(/IDLE_PAUSE_MS/.test(appSource),'UI must use the idle-pause threshold for away time');
 for(const label of ['Level 1','Level 2','Level 3'])assert.ok(appSource.includes(label),`UI must label practice tiers (${label})`);
 assert.ok(/No calculator/i.test(appSource),'UI must show the no-calculator benchmark instruction');
+const swSource=readFileSync(join(ROOT,'sw.js'),'utf8');
+assert.ok(swSource.includes('practice-timer.mjs'),'Service worker must cache practice-timer.mjs');
+
+assert.equal(IDLE_PAUSE_MS,5*60*1000,'Idle pause must be 5 minutes');
+assert.match(todayKey(new Date('2026-08-12T15:00:00')),/^\d{4}-\d{2}-\d{2}$/);
+const dayState={sessionDate:'2026-08-11',practiceMs:900000,nextBreakMin:40};
+assert.equal(ensurePracticeDay(dayState,Date.parse('2026-08-12T09:00:00')),true,'New calendar day must roll practice counters');
+assert.equal(dayState.practiceMs,0);
+assert.equal(dayState.nextBreakMin,20);
+assert.equal(dayState.sessionDate,todayKey(new Date(Date.parse('2026-08-12T09:00:00'))));
+assert.equal(ensurePracticeDay(dayState,Date.parse('2026-08-12T10:00:00')),false);
+dayState.practiceMs=120000;
+assert.equal(elapsedPracticeMin(dayState.practiceMs,Date.parse('2026-08-12T10:00:00'),Date.parse('2026-08-12T10:03:00')),5);
+assert.equal(shouldIdlePause(Date.parse('2026-08-12T10:00:00'),Date.parse('2026-08-12T10:04:59')),false);
+assert.equal(shouldIdlePause(Date.parse('2026-08-12T10:00:00'),Date.parse('2026-08-12T10:05:00')),true);
+let seg={practiceMs:60000},since=Date.parse('2026-08-12T10:00:00');
+since=pauseSegment(seg,since,Date.parse('2026-08-12T10:02:00'));
+assert.equal(since,null);
+assert.equal(seg.practiceMs,180000);
+assert.equal(activeElapsedMs(seg.practiceMs,null,Date.parse('2026-08-12T10:10:00')),180000,'Paused time must not keep accruing');
+assert.equal(canResumePractice({onBreak:true,hidden:false,idle:false}),false);
+assert.equal(canResumePractice({onBreak:false,hidden:true,idle:false}),false);
+assert.equal(canResumePractice({onBreak:false,hidden:false,idle:true}),false);
+assert.equal(canResumePractice({onBreak:false,hidden:false,idle:false}),true);
 
 assert.equal(TOPICS.length,20,'Expected 20 daily topics');
 assert.equal(PASS_MASTERY,80,'Mastery unlock must remain 80%');
@@ -66,4 +94,4 @@ assert.ok(m>=80);
 m=updateMastery(m,false);
 assert.ok(m<100&&m>=0);
 
-console.log('PASS: 20 topics; 2,000 base questions; 1,000 daily benchmark sets; exact 3/4/3 tiers; NC contexts; KCC; 80%+exit gating; mastery bounds; UI wired to canonical benchmark');
+console.log('PASS: 20 topics; 2,000 base questions; 1,000 daily benchmark sets; exact 3/4/3 tiers; NC contexts; KCC; 80%+exit gating; mastery bounds; UI wired to canonical benchmark; active practice timer day/idle/pause rules');
