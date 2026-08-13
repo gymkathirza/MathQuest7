@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.13.0`
-- Release label: `parent-admin-dashboard`
+- Version: `0.13.1`
+- Release label: `active-practice-timer`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
@@ -20,7 +20,7 @@ Files are grouped by category (as of `0.11.0`):
 
 - Web root (kept at repo root for the GitHub Pages URL and service-worker scope): `index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`.
 - `css/` — `app.css`.
-- `js/` — `app.js`, `curriculum.mjs`, `daily-session.mjs` (modules reference web-root files via `new URL('../file', import.meta.url)`).
+- `js/` — `app.js`, `curriculum.mjs`, `daily-session.mjs`, `practice-timer.mjs` (modules reference web-root files via `new URL('../file', import.meta.url)`).
 - `docs/` — this file plus `MEMORY.md`, `VERSIONING.md`, `TEST_CREATION_BASELINE.md`, `SESSION_GENERATION_SPEC.md`, `session-generation-schema.json`, `README_V07.md`, `REGISTRATION_SETUP.md`, `TESTING.md`.
 - `tests/` — `smoke.mjs`. `.github/` — CI/deploy. `.cursor/` — Cloud Agent environment and always-on rules.
 
@@ -40,11 +40,11 @@ Current design includes:
 - independent practice delivered as the canonical 10-question 3/4/3 daily benchmark (level-labeled Level 1/2/3, NC-context word problems, no-calculator reminder, strategy hints)
 - itemized error-analysis summary after each benchmark set
 - roadmap navigation: any unlocked day (current or previously completed) is clickable to revisit/replay; locked future days stay gated. The "Start / Continue Today" button shows the target day number, e.g. "Start / Continue Today (Day 2)"
-- header badges: XP, streak, elapsed-minutes timer, and app version, each with a hover/focus help tooltip. The version badge fetches `version.json` network-first through the service worker so it always reflects the deployed version
+- header badges: XP, streak, active daily practice-minutes timer, and app version, each with a hover/focus help tooltip. The version badge fetches `version.json` network-first through the service worker so it always reflects the deployed version
 - Parent / Admin portal (renamed from "Parent"), PIN-gated, with an improved dashboard: an overall progress bar + "days completed" plus XP/challenges/accuracy/best-streak stat cards, a "Focus areas" panel that surfaces the topics with the most missed questions (from the local error log) with one-tap "Review →" into that day, and mastery grouped by the four curriculum weeks. Existing controls (export/change PIN/reset/clear) retained
 - hover/focus helper tooltips on the header badges (XP, streak, timer, version), hero buttons, phase steps, and day tiles
 - animated conceptual illustrations on Learn pages (number-line slide for integer addition, Tug-of-War for different signs, sign-rule cycle for signed multiply/divide), with a prefers-reduced-motion fallback
-- healthy-break session timer: the header shows elapsed practice minutes only (no "/60:00" countdown, to avoid rushing); a dynamic hover tooltip encourages breaks. Every 20 minutes of active practice a top toast appears and a full-screen break overlay asks the learner to choose a 5/7/10-minute screen break, then freezes the UI with a countdown (20-20-20 rule, move/hydrate prompts) before unlocking. Break time is excluded from the practice-minute counter. Guidance is based on CDC/AAP screen-break recommendations. The goal is ~60 min of practice per concept with regular active breaks, not continuous screen time.
+- healthy-break active practice timer: the header shows today's accumulated active practice minutes only (no "/60:00" countdown). Time starts when the student opens the app for the day, pauses during screen breaks, while the browser tab is hidden/minimized, after 5 minutes of no interaction (away), and while the Parent / Admin portal is open, then resumes on return/activity. The counter resets each local calendar day. Every 20 minutes of active practice a top toast and full-screen break overlay offer a 5/7/10-minute screen break. Guidance follows CDC/AAP screen-break recommendations; the goal is ~60 min of real practice with regular active breaks, not continuous wall-clock screen time.
 - error analysis/remediation
 - exit tickets
 - 80% mastery + exit-ticket progression gate
@@ -181,4 +181,4 @@ A new agent should:
 
 ## Last state refresh
 
-This state snapshot was refreshed at production version `0.13.0` (`parent-admin-dashboard`): renamed the Parent portal to "Parent / Admin" and improved the dashboard (overall progress bar + days-completed, focus-areas panel from the error log with Review shortcuts, and week-grouped mastery). It builds on `0.12.0` (`day-tile-nav-badges`): the "Start / Continue Today" button now shows the target day number; header tooltips/badges hardened; and — the root cause of stale UI for returning users — the service worker now serves `version.json` network-first and its `CACHE` name is pinned to the app version with a CI guard (`sw.js` must contain `mathquest7-v<version>`), so every deployed change reliably reaches clients. Day-tile click-to-open (any unlocked/completed day) was already present since `0.9.0` and is retained. It builds on `0.11.0` (`repo-restructure`): reorganized the repo into `css/`, `js/`, and `docs/` (web-root PWA files intentionally kept at root), added an always-on maintenance rule at `.cursor/rules/mathquest-maintenance.mdc`, and added the live GitHub Pages link to the README. Behavior is otherwise unchanged from `0.10.0` (`healthy-break-timer`: elapsed-minutes practice timer, dynamic timer tooltip, recurring 20-minute break toast, and choose-your-length 5/7/10-minute UI-freezing break overlay grounded in CDC/AAP screen-break guidance), which built on `0.9.0` (completed-day replay navigation, hover tooltips, Learn-page animations) and `0.8.0` (UI wired to the canonical 3/4/3 daily benchmark).
+This state snapshot was refreshed at production version `0.13.1` (`active-practice-timer`): the header practice clock now tracks active daily practice time (pauses on breaks, hidden/minimized tabs, 5+ minutes idle/away, and Parent / Admin), resets each local calendar day, and no longer accrues wall-clock time while the student is away. It builds on `0.13.0` (`parent-admin-dashboard`): renamed the Parent portal to "Parent / Admin" and improved the dashboard (overall progress bar + days-completed, focus-areas panel from the error log with Review shortcuts, and week-grouped mastery). It builds on `0.12.0` (`day-tile-nav-badges`): the "Start / Continue Today" button now shows the target day number; header tooltips/badges hardened; and — the root cause of stale UI for returning users — the service worker now serves `version.json` network-first and its `CACHE` name is pinned to the app version with a CI guard (`sw.js` must contain `mathquest7-v<version>`), so every deployed change reliably reaches clients. Day-tile click-to-open (any unlocked/completed day) was already present since `0.9.0` and is retained. It builds on `0.11.0` (`repo-restructure`): reorganized the repo into `css/`, `js/`, and `docs/` (web-root PWA files intentionally kept at root), added an always-on maintenance rule at `.cursor/rules/mathquest-maintenance.mdc`, and added the live GitHub Pages link to the README. Behavior is otherwise unchanged from `0.10.0` (`healthy-break-timer`: elapsed-minutes practice timer, dynamic timer tooltip, recurring 20-minute break toast, and choose-your-length 5/7/10-minute UI-freezing break overlay grounded in CDC/AAP screen-break guidance), which built on `0.9.0` (completed-day replay navigation, hover tooltips, Learn-page animations) and `0.8.0` (UI wired to the canonical 3/4/3 daily benchmark).

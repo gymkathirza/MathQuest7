@@ -34,6 +34,7 @@ The experience should:
 - adapt difficulty based on performance
 - build confidence through visible progression
 - support roughly 1-hour daily learning sessions with a midpoint break
+- track **active practice time of the day** (not wall-clock): start when the student opens the app for the day; pause during healthy-break overlays, while the browser tab is hidden/minimized, after 5 minutes without interaction (away), and while Parent / Admin is open; reset on each local calendar day
 
 ## Curriculum baseline
 

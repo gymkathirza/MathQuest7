@@ -21,7 +21,7 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 - Optional hints for difficult problems.
 - XP, coins, streaks, mastery levels, and unlockable buildings.
 - A realm-building reward system that gives learners a reason to continue practicing.
-- A 60-minute expedition session timer.
+- An active daily practice timer (~60-minute pacing target) that pauses on breaks, hidden tabs, and 5+ minutes away, and resets each day.
 - A movement/water/eye-rest checkpoint around the middle of a session.
 - Parent dashboard with overall accuracy, problems solved, XP, best streak, and mastery by math zone.
 - Automatic local progress saving.
@@ -193,7 +193,7 @@ Currently saved information includes:
 - adaptive difficulty level by math zone
 - unlocked/built realm items
 
-The 60-minute expedition timer is session-based and is not intended to permanently carry over between new sessions.
+The practice timer counts active learning time for the local calendar day only. It pauses during breaks, when the browser tab is hidden/minimized, after about 5 minutes without interaction, and in the Parent / Admin portal, then resets the next day.
 
 ## Where progress is stored
 
@@ -259,6 +259,7 @@ The project is organized by category:
 - `index.html` — game interface / entry point (kept at the web root)
 - `css/app.css` — styles
 - `js/app.js` — UI flow, session timer/breaks, parent dashboard, progress saving
+- `js/practice-timer.mjs` — active daily practice-time helpers (day reset, idle/hidden pause rules)
 - `js/curriculum.mjs` — 20-topic curriculum and per-topic question generators
 - `js/daily-session.mjs` — canonical 10-question 3/4/3 daily benchmark generator
 - `sw.js` — service worker used for offline caching
