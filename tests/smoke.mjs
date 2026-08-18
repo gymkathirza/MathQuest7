@@ -15,8 +15,8 @@ assert.ok(/from ['"]\.\/practice-timer\.mjs['"]/.test(appSource),'UI (app.js) mu
 assert.ok(/from ['"]\.\/mastery-session\.mjs['"]/.test(appSource),'UI (app.js) must import mastery / open-ended session helpers');
 assert.ok(/from ['"]\.\/learner-insights\.mjs['"]/.test(appSource),'UI must import learner insights helpers');
 assert.ok(/masteryReplayTarget/.test(appSource),'UI must honor Parent/Admin mastery replay volume');
-assert.ok(/focusMode/.test(appSource),'UI must support parent focus mode for open-ended fine-tuning');
-assert.ok(/studentCoach/.test(appSource)||readFileSync(join(ROOT,'index.html'),'utf8').includes('studentCoach'),'Student coaching plan surface required');
+assert.ok(/refreshInsightPanels/.test(appSource),'UI must refresh coaching panels after practice saves');
+assert.ok(/insightSummaryHtml|Updated coaching snapshot/.test(appSource),'Benchmark summary must show live coaching snapshot');
 assert.ok(/generateDailyBenchmark\s*\(/.test(appSource),'UI (app.js) must call generateDailyBenchmark so practice uses the 3/4/3 benchmark');
 assert.ok(/visibilitychange/.test(appSource),'UI must pause practice time when the tab is hidden');
 assert.ok(/IDLE_PAUSE_MS/.test(appSource),'UI must use the idle-pause threshold for away time');
@@ -102,17 +102,44 @@ for(const t of TOPICS){locked.mastery[t.id]=80;locked.cleared[t.id]=true}
 assert.equal(allTopicsCleared(locked),true);
 assert.equal(openEndedUnlocked(locked),true);
 assert.equal(OPEN_ENDED_ID,'open_mastery');
-const insightState={mastery:{},cleared:{},attempts:{},errorLog:[],settings:{focusMode:'blend',focusTopicIds:['ns_sub']}};
+
+// Live coaching insights must react to real practice — not invent static Day 1–N rows.
+const blank={mastery:{},cleared:{},attempts:{},errorLog:[],settings:{focusMode:'auto',focusTopicIds:[]}};
+for(const t of TOPICS){blank.mastery[t.id]=0;blank.cleared[t.id]=false;blank.attempts[t.id]={n:0,c:0}}
+const blankInsights=analyzeLearner(blank);
+assert.equal(blankInsights.strengths.length,0,'No strengths before any practice');
+assert.equal(blankInsights.improvements.length,0,'No improvements before any practice');
+assert.ok(blankInsights.plan[0]?.action.includes('Start'),'Empty plan should nudge starting a lesson');
+
+const live={mastery:{},cleared:{},attempts:{},errorLog:[],settings:{focusMode:'auto',focusTopicIds:[]}};
+for(const t of TOPICS){live.mastery[t.id]=0;live.cleared[t.id]=false;live.attempts[t.id]={n:0,c:0}}
+// Day 1 weak after mistakes
+live.attempts.ns_signs={n:8,c:2};live.mastery.ns_signs=24;live.errorLog=[{topic:'ns_signs'},{topic:'ns_signs'},{topic:'ns_signs'},{topic:'ns_signs'},{topic:'ns_signs'}];
+// Day 2 strong
+live.attempts.ns_add={n:12,c:11};live.mastery.ns_add=92;live.cleared.ns_add=true;
+// Day 3 mild
+live.attempts.ns_sub={n:6,c:4};live.mastery.ns_sub=60;
+const liveInsights=analyzeLearner(live);
+assert.ok(liveInsights.improvements.some(r=>r.topic.id==='ns_signs'),'Mistakes must surface Day 1 in improvements');
+assert.ok(liveInsights.strengths.some(r=>r.topic.id==='ns_add'),'Strong Day 2 must appear in strengths');
+assert.ok(!liveInsights.strengths.some(r=>r.topic.id==='ns_signs'),'Weak Day 1 must not also count as a strength');
+assert.ok(!liveInsights.improvements.some(r=>r.topic.id==='ns_add'),'Strong Day 2 must not also count as an improvement');
+assert.ok(liveInsights.plan.some(p=>p.topicId==='ns_signs'),'Plan must target the weak day');
+assert.deepEqual(resolveFocusTopicIds(live,liveInsights).slice(0,1),['ns_signs'],'Auto open-ended focus must lead with the weakest practiced day');
+
+const insightState={mastery:{},cleared:{},attempts:{},errorLog:[],settings:{focusMode:'blend',focusTopicIds:['g_circle']}};
 for(const t of TOPICS){insightState.mastery[t.id]=t.id==='ns_sub'?40:t.id==='ns_add'?92:70;insightState.cleared[t.id]=t.id!=='ns_sub';insightState.attempts[t.id]={n:10,c:t.id==='ns_sub'?3:9}}
 insightState.errorLog=[{topic:'ns_sub'},{topic:'ns_sub'},{topic:'ns_sub'}];
 const insights=analyzeLearner(insightState);
 assert.ok(insights.improvements.some(r=>r.topic.id==='ns_sub'),'Low-accuracy topic should appear in improvements');
 assert.ok(insights.strengths.some(r=>r.topic.id==='ns_add'),'High-mastery topic should appear in strengths');
+assert.ok(!insights.improvements.some(r=>insights.strengths.some(s=>s.topic.id===r.topic.id)),'Strength and improvement lists must not overlap');
 assert.ok(insights.plan.length>=1,'Improvement plan should be non-empty');
 const focused=resolveFocusTopicIds(insightState,insights);
-assert.ok(focused.includes('ns_sub'),'Blend focus should include parent pin / weak topic');
-const focusedSet=generateOpenEndedBenchmark(TOPICS.map(t=>t.id),{focusTopicIds:['ns_sub','ns_add'],focusShare:0.8});
-assert.ok(focusedSet.filter(q=>q.topicId==='ns_sub'||q.topicId==='ns_add').length>=5,'Open-ended sets should weight focus topics');
+assert.ok(focused[0]==='g_circle'||focused.includes('g_circle'),'Blend focus should include parent pin');
+assert.ok(focused.includes('ns_sub'),'Blend focus should include auto weak topic');
+const focusedSet=generateOpenEndedBenchmark(TOPICS.map(t=>t.id),{focusTopicIds:resolveFocusTopicIds(live,liveInsights),focusShare:0.8});
+assert.ok(focusedSet.filter(q=>q.topicId==='ns_signs'||q.topicId==='ns_sub').length>=6,'Open-ended mastery sets must overweight improvement days');
 
 for(const t of TOPICS){
   for(let i=0;i<100;i++)validateProblem(generateProblem(t.id),`${t.id}/base`);
