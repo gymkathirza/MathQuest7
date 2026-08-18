@@ -7,6 +7,7 @@ import {generateDailyBenchmark,CORE_DAILY_COUNT,LEVEL_COUNTS,NC_LOCATIONS} from 
 import {IDLE_PAUSE_MS,todayKey,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,activeElapsedMs} from '../js/practice-timer.mjs';
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,allTopicsCleared,openEndedUnlocked,MASTERY_LEVEL_COUNTS,OPEN_ENDED_ID} from '../js/mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,SYLLABUS_GAPS} from '../js/learner-insights.mjs';
+import {boostStepsForTopic,boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from '../js/coach-visuals.mjs';
 
 const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
 const appSource=readFileSync(join(ROOT,'js','app.js'),'utf8');
@@ -15,8 +16,12 @@ assert.ok(/from ['"]\.\/practice-timer\.mjs['"]/.test(appSource),'UI (app.js) mu
 assert.ok(/from ['"]\.\/mastery-session\.mjs['"]/.test(appSource),'UI (app.js) must import mastery / open-ended session helpers');
 assert.ok(/from ['"]\.\/learner-insights\.mjs['"]/.test(appSource),'UI must import learner insights helpers');
 assert.ok(/masteryReplayTarget/.test(appSource),'UI must honor Parent/Admin mastery replay volume');
+assert.ok(/from ['"]\.\/coach-visuals\.mjs['"]/.test(appSource),'UI must import GIF-style coaching visuals');
+assert.ok(/startImprovementPractice/.test(appSource),'Student coaching plan must launch improvement-day practice with boost path');
 assert.ok(/refreshInsightPanels/.test(appSource),'UI must refresh coaching panels after practice saves');
-assert.ok(/insightSummaryHtml|Updated coaching snapshot/.test(appSource),'Benchmark summary must show live coaching snapshot');
+assert.ok(/Scores updated|recalibrated|Updated coaching snapshot/.test(appSource),'Benchmark summary must show live coaching snapshot after practice');
+assert.ok(/forParent:\s*true/.test(appSource),'Parent improvement previews must be read-only (forParent)');
+assert.ok(!/data-goto/.test(appSource),'Parent dashboard must not launch practice via data-goto');
 assert.ok(/generateDailyBenchmark\s*\(/.test(appSource),'UI (app.js) must call generateDailyBenchmark so practice uses the 3/4/3 benchmark');
 assert.ok(/visibilitychange/.test(appSource),'UI must pause practice time when the tab is hidden');
 assert.ok(/IDLE_PAUSE_MS/.test(appSource),'UI must use the idle-pause threshold for away time');
@@ -26,12 +31,18 @@ const swSource=readFileSync(join(ROOT,'sw.js'),'utf8');
 assert.ok(swSource.includes('practice-timer.mjs'),'Service worker must cache practice-timer.mjs');
 assert.ok(swSource.includes('mastery-session.mjs'),'Service worker must cache mastery-session.mjs');
 assert.ok(swSource.includes('learner-insights.mjs'),'Service worker must cache learner-insights.mjs');
+assert.ok(swSource.includes('coach-visuals.mjs'),'Service worker must cache coach-visuals.mjs');
 const indexSource=readFileSync(join(ROOT,'index.html'),'utf8');
 assert.ok(indexSource.includes('masteryReplayTarget'),'Parent panel must expose mastery replay target control');
 assert.ok(indexSource.includes('strengths')&&indexSource.includes('improvements')&&indexSource.includes('improvePlan'),'Parent panel must show strengths, improvements, and plan');
 assert.ok(indexSource.includes('masteryReview'),'Parent panel must include mastery review');
 assert.ok(indexSource.includes('focusMode'),'Parent panel must expose open-ended focus mode');
 assert.ok(SYLLABUS_GAPS.length>=5,'Syllabus gap notes should cover major NC.7 domains');
+assert.ok(TOPICS.every(t=>boostStepsForTopic(t.id).length>=3),`Every topic needs granular GIF boost steps`);
+assert.ok(boostPathHtml(TOPICS[3]).includes('GIF-style boost path'),'Boost path HTML must label the GIF walkthrough');
+assert.ok(improvementPreviewHtml(TOPICS[3],'Focus Day 4',{forParent:true}).includes('Read-only'),'Parent preview must note read-only');
+assert.ok(!improvementPreviewHtml(TOPICS[3],'Focus Day 4').includes('Read-only'),'Student preview must not show parent read-only note');
+assert.ok(strengthsPraiseHtml([{topic:TOPICS[1],mastery:92,accuracy:0.9}]).includes('strength'),'Strength praise cards must celebrate strengths');
 
 assert.equal(IDLE_PAUSE_MS,5*60*1000,'Idle pause must be 5 minutes');
 assert.match(todayKey(new Date('2026-08-12T15:00:00')),/^\d{4}-\d{2}-\d{2}$/);
@@ -180,4 +191,4 @@ assert.ok(m>=80);
 m=updateMastery(m,false);
 assert.ok(m<100&&m>=0);
 
-console.log('PASS: 20 topics; benchmarks; mastery replay; open-ended focus weighting; learner insights strengths/improvements; active practice timer');
+console.log('PASS: 20 topics; benchmarks; mastery replay; open-ended focus weighting; learner insights; GIF boost coaching visuals; active practice timer');

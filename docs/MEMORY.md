@@ -38,6 +38,8 @@ The experience should:
 - after the 20-day spine is cleared, unlock an **Open-Ended Mastery Quest** that recaps all NC.7 domains and offers endless mixed advanced practice (harder 2·4·4 tier mix) so learning continues without boredom
 - Parent/Admin may set a separate **mastery replay target** (10/20/40/unlimited) controlling how much practice is expected when revisiting completed days or the open-ended quest; this does not replace the first-time Exit Ticket practice target
 - Parent/Admin and student UIs share a **strengths / improvements / improvement-plan** insight model derived from mastery, accuracy, and the error log; open-ended fine-tuning can be **auto**, **manual** (parent pins), or **blend**
+- Improvement-plan **Practice** is **student-only**. Parent/Admin panels show the same plan and GIF-style step previews as read-only so adults cannot start practice or alter progress from that view
+- Student boost practice for a plan day opens a **granular GIF-style animated walkthrough** (`js/coach-visuals.mjs`, CSS animations — no binary GIF assets required for offline PWA) before guided/independent practice; after answers save, mastery/scores update and strengths/improvements **recalibrate** live
 - the 20-day spine is an intro-depth UCPS/NC.7 coverage path; deeper objectives (compound probability, MAD/IQR, 3D surface area/volume, fractional unit rates, etc.) remain documented gaps for future lessons
 
 ## Curriculum baseline

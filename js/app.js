@@ -3,11 +3,12 @@ import {generateDailyBenchmark,CORE_DAILY_COUNT} from './daily-session.mjs';
 import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice} from './practice-timer.mjs';
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
+import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
 const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
 function defaultState(){return{xp:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN}}
-let S=loadState(),current=0,sessionMode='learn',q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,runningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
+let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,runningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
 function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels()}
 function renderTop(){$('xp').textContent=S.xp;$('streak').textContent=S.streak}
@@ -16,7 +17,7 @@ function onParentDashboard(){return!$('parent').classList.contains('hidden')&&!$
 function refreshInsightPanels(){if(onHome())renderStudentCoach();if(onParentDashboard())renderDashboard()}
 function go(id){for(const x of ['home','learn','parent'])$(x).classList.toggle('hidden',x!==id);if(id==='home')renderMap();if(id==='parent')pausePractice();else{noteActivity();resumePractice()}}
 function syncPracticeDay(){if(ensurePracticeDay(S)){runningSince=runningSince!=null?Date.now():null}}
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.15.1'}}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.16.0'}}
 function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
@@ -28,15 +29,16 @@ function renderStudentCoach(){
     const b=$('coachStart');if(b)b.onclick=()=>continueJourney();
     return;
   }
-  const strengthChips=insights.strengths.map(formatInsightChip).map(c=>`<span class="chip">${c.icon} Day ${c.day}: ${esc(c.title)} · ${c.mastery}% · ${c.accuracy}</span>`).join('');
-  const improveChips=insights.improvements.map(formatInsightChip).map(c=>`<span class="chip">${c.icon} Day ${c.day}: ${esc(c.title)} · ${c.mastery}% · ${c.misses} misses</span>`).join('');
-  const plan=insights.plan.slice(0,4).map(p=>`<div class="coachItem"><b>${p.day?`Day ${p.day}: ${esc(p.title)}`:'Next step'}</b><span class="small">${esc(p.action)}</span>${p.day!=null&&topicUnlocked(S,p.day-1)?`<div style="margin-top:8px"><button class="btn" data-coach="${p.day-1}">Practice this day →</button></div>`:''}</div>`).join('');
-  box.innerHTML=`<p class="small">Live from your attempts, mastery, and mistakes (${insights.practicedCount} day${insights.practicedCount===1?'':'s'} with practice evidence). Parent/Admin can pin fine-tuning days for Open-Ended Mastery.</p>
-<p><b>Strengths</b></p><div class="chipRow">${strengthChips||'<span class="small">Keep practicing — strengths appear after solid accuracy on a day.</span>'}</div>
-<p><b>Improvements</b></p><div class="chipRow">${improveChips||'<span class="small">No weak spots detected yet. Nice work!</span>'}</div>
-${plan}
+  const praise=strengthsPraiseHtml(insights.strengths);
+  const plan=insights.plan.filter(p=>p.day!=null).slice(0,4).map(p=>{
+    const t=TOPICS[p.day-1];
+    return`${improvementPreviewHtml(t,p.action)}<div style="margin-top:8px"><button class="btn" data-coach="${p.day-1}">🎬 Practice Day ${p.day} with GIF steps →</button></div>`;
+  }).join('')||insights.plan.map(p=>`<div class="coachItem"><b>${esc(p.title||'Next step')}</b><span class="small">${esc(p.action)}</span></div>`).join('');
+  box.innerHTML=`<p class="small">Live from your attempts, mastery, and mistakes (${insights.practicedCount} day${insights.practicedCount===1?'':'s'} with evidence). After each boost practice, scores update and this plan recalibrates.</p>
+<p><b>You’re already doing great</b></p>${praise}
+<p><b>Improvement plan (GIF-style steps + practice)</b></p>${plan}
 ${openEndedUnlocked(S)?`<button class="btn" id="coachOpenEnded">${OPEN_ENDED_ICON} Open-Ended fine-tuning (uses this plan) →</button>`:''}`;
-  box.querySelectorAll('[data-coach]').forEach(b=>b.onclick=()=>startLesson(Number(b.dataset.coach)));
+  box.querySelectorAll('[data-coach]').forEach(b=>b.onclick=()=>startImprovementPractice(Number(b.dataset.coach)));
   const oe=$('coachOpenEnded');if(oe)oe.onclick=()=>startOpenEnded();
 }
 function renderMap(){
@@ -54,8 +56,25 @@ function nextDayIndex(){const i=TOPICS.findIndex((t,j)=>topicUnlocked(S,j)&&!S.c
 function updateContinueLabel(){const allDone=allTopicsCleared(S);$('continueBtn').textContent=allDone?`▶ ${OPEN_ENDED_ICON} Open-Ended Mastery`:`▶ Start / Continue Today (Day ${nextDayIndex()+1})`}
 function continueJourney(){if(allTopicsCleared(S))startOpenEnded();else startLesson(nextDayIndex())}
 function beginLearnSurface(){save();go('learn');noteActivity();resumePractice();startClock()}
-function startLesson(i){if(!topicUnlocked(S,i))return;current=i;S.day=i;const done=S.cleared[TOPICS[i].id]&&S.mastery[TOPICS[i].id]>=PASS_MASTERY;sessionMode=done?'replay':'learn';sessionPracticeStart=S.attempts[TOPICS[i].id].n;beginLearnSurface();if(done)showMasteryRecap();else showWarmup()}
-function startOpenEnded(){if(!openEndedUnlocked(S))return;sessionMode='open';current=TOPICS.length-1;S.day=TOPICS.length-1;sessionPracticeStart=S.attempts[OPEN_ENDED_ID].n;beginLearnSurface();showOpenRecap()}
+function startLesson(i){if(!topicUnlocked(S,i))return;current=i;S.day=i;boostMode=false;const done=S.cleared[TOPICS[i].id]&&S.mastery[TOPICS[i].id]>=PASS_MASTERY;sessionMode=done?'replay':'learn';sessionPracticeStart=S.attempts[TOPICS[i].id].n;beginLearnSurface();if(done)showMasteryRecap();else showWarmup()}
+function startImprovementPractice(i){
+  if(!topicUnlocked(S,i))return;
+  current=i;S.day=i;boostMode=true;
+  const done=S.cleared[TOPICS[i].id]&&S.mastery[TOPICS[i].id]>=PASS_MASTERY;
+  sessionMode=done?'replay':'learn';
+  sessionPracticeStart=S.attempts[TOPICS[i].id].n;
+  beginLearnSurface();
+  showBoostPath();
+}
+function startOpenEnded(){if(!openEndedUnlocked(S))return;sessionMode='open';boostMode=false;current=TOPICS.length-1;S.day=TOPICS.length-1;sessionPracticeStart=S.attempts[OPEN_ENDED_ID].n;beginLearnSurface();showOpenRecap()}
+function showBoostPath(){
+  setPhase('learn');$('feedback').innerHTML='';$('interaction').innerHTML='';
+  const t=TOPICS[current],insights=currentInsights();
+  const lead=insights.strengths[0]?`Before we boost Day ${current+1}, remember: ${insights.strengths[0].topic.title} is already a strength for you — you’ve got this!`:`You’re brave for practicing a growth day. Let’s slow it down with clear GIF-style steps.`;
+  $('lessonBody').innerHTML=boostPathHtml(t,{positiveLead:lead});
+  $('interaction').append(button('I watched the steps — guided practice →',sessionMode==='replay'?()=>{boostMode=false;showPractice()}:()=>{boostMode=false;showGuided()}));
+  $('interaction').append(button('Show me the steps once more',showBoostPath,'btn alt'));
+}
 function elapsedMin(){syncPracticeDay();return Math.max(0,elapsedPracticeMin(S.practiceMs,runningSince))}
 function onParentScreen(){return!$('parent').classList.contains('hidden')}
 function pausePractice(){runningSince=pauseSegment(S,runningSince);save()}
@@ -74,9 +93,9 @@ function setPhase(p){
 }
 function button(label,fn,cls='btn'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=fn;return b}
 function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{$('feedback').innerHTML=a===w.a?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;$('feedback').append(button('Continue to today’s story →',showLearn))})}
-function showLearn(){setPhase('learn');const t=TOPICS[current];$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">📖 STORY</p><h2>${t.story}</h2>${t.teach}`;$('interaction').append(button('I watched & understand — guided practice →',showGuided))}
+function showLearn(){setPhase('learn');const t=TOPICS[current];$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">📖 STORY</p><h2>${t.story}</h2>${t.teach}`;$('interaction').append(button('🎬 Need a slower GIF walkthrough →',showBoostPath,'btn alt'));$('interaction').append(button('I watched & understand — guided practice →',showGuided))}
 function showGuided(){setPhase('guided');const g=TOPICS[current].guided;$('lessonBody').innerHTML=`<h2>🖐️ Guided Practice</h2><p class="concept">${g.prompt}</p><p class="small">Drag a tile into the target, or tap a tile on iPad.</p>`;$('feedback').innerHTML='';$('interaction').innerHTML=`<div class="tokens">${g.tokens.map(x=>`<div class="token" draggable="true" data-v="${esc(x)}">${x}</div>`).join('')}</div><div class="targets"><div id="dropTarget" class="target">DROP / TAP ANSWER</div></div>`;const check=v=>{if(v===g.answer){$('dropTarget').textContent=v;$('feedback').innerHTML=`<div class="feedback good">✨ Correct. ${g.explain}</div><div class="celebrate">⭐ ✅ 🎉</div>`;$('feedback').append(button('Start independent practice →',showPractice))}else{$('feedback').innerHTML=`<div class="feedback bad">🌱 Not yet. ${g.explain} Try again until you make it right.</div><div class="retry">🤔 ↩️ 💡</div>`}};document.querySelectorAll('.token').forEach(el=>{el.onclick=()=>check(el.dataset.v);el.ondragstart=e=>e.dataTransfer.setData('text',el.dataset.v)});$('dropTarget').ondragover=e=>e.preventDefault();$('dropTarget').ondrop=e=>{e.preventDefault();check(e.dataTransfer.getData('text'))}}
-function showMasteryRecap(){setPhase('learn');const t=TOPICS[current],goal=practiceGoal();$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">♻️ MASTERY REPLAY · Union County / NC Grade 7 retention</p><h2>${t.icon} Day ${current+1} Recap: ${t.title}</h2><p class="concept">${t.story}</p>${t.teach}<p class="small">Parent/Admin mastery target for completed days: <b>${goalLabel(goal)}</b> questions this visit (advanced 2·4·4 mix). Keep skills sharp without redoing the unlock gate.</p>`;$('interaction').append(button('Start advanced mastery practice →',showPractice))}
+function showMasteryRecap(){setPhase('learn');const t=TOPICS[current],goal=practiceGoal();$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">♻️ MASTERY REPLAY · Union County / NC Grade 7 retention</p><h2>${t.icon} Day ${current+1} Recap: ${t.title}</h2><p class="concept">${t.story}</p>${t.teach}<p class="small">Parent/Admin mastery target for completed days: <b>${goalLabel(goal)}</b> questions this visit (advanced 2·4·4 mix). Keep skills sharp without redoing the unlock gate.</p>`;$('interaction').append(button('🎬 GIF boost steps first →',showBoostPath,'btn alt'));$('interaction').append(button('Start advanced mastery practice →',showPractice))}
 function showOpenRecap(){
   setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';
   const insights=currentInsights(),focusIds=resolveFocusTopicIds(S,insights);
@@ -107,7 +126,7 @@ function sessionGoalMet(){const goal=practiceGoal(),gained=S.attempts[activeTopi
 function insightSummaryHtml(insights){
   const weak=insights.improvements.slice(0,3).map(r=>`Day ${TOPICS.indexOf(r.topic)+1}: ${r.topic.title}`).join(' · ')||'none yet';
   const strong=insights.strengths.slice(0,3).map(r=>`Day ${TOPICS.indexOf(r.topic)+1}: ${r.topic.title}`).join(' · ')||'none yet';
-  return`<div class="coachItem"><b>📈 Updated coaching snapshot</b><span class="small">Strengths: ${esc(strong)}<br>Improvements: ${esc(weak)}</span><div style="margin-top:8px"><button class="btn alt" id="seeCoachHome">View full coaching plan on home →</button></div></div>`;
+  return`<div class="coachItem"><b>📈 Scores updated · strengths &amp; improvements recalibrated</b><span class="small">Strengths: ${esc(strong)}<br>Improvements: ${esc(weak)}<br>Open your coaching plan to see praise GIFs and the next GIF-step boost day.</span><div style="margin-top:8px"><button class="btn alt" id="seeCoachHome">View full coaching plan on home →</button></div></div>`;
 }
 function wireCoachHomeBtn(){const b=$('seeCoachHome');if(b)b.onclick=()=>go('home')}
 function benchSummary(){
@@ -155,22 +174,20 @@ function renderDashboard(){
   $('dDays').textContent=`${daysDone} / ${TOPICS.length}`;$('dXp').textContent=S.xp;$('dSolved').textContent=S.total;$('dAcc').textContent=acc+'%';$('dBest').textContent=S.best;
   $('overallBar').style.width=pct+'%';
   $('overallCap').innerHTML=allDone?`<b>All ${TOPICS.length} days completed (${pct}%)</b> • Next: ${OPEN_ENDED_ICON} ${esc(OPEN_ENDED_TITLE)} (${S.attempts[OPEN_ENDED_ID].n} practices) · Focus: ${esc(focusModeLabel(S.settings.focusMode))}`:`<b>${daysDone} of ${TOPICS.length} days completed (${pct}%)</b> • Next up: Day ${ni+1} — ${esc(TOPICS[ni].title)}`;
-  $('strengths').innerHTML=insights.strengths.length?insights.strengths.map(formatInsightChip).map(c=>`<div class="coachItem"><b>${c.icon} Day ${c.day}: ${esc(c.title)}</b><span class="small">${c.standard} · Mastery ${c.mastery}% · Accuracy ${c.accuracy} · ${c.attempts} attempts · ${c.misses} misses</span><button class="btn" data-goto="${c.day-1}">Review mastery →</button></div>`).join(''):'<p class="small">No strengths yet — need solid practice evidence (accuracy and mastery) on a day first.</p>';
-  $('improvements').innerHTML=insights.improvements.length?insights.improvements.map(formatInsightChip).map(c=>`<div class="coachItem"><b>${c.icon} Day ${c.day}: ${esc(c.title)}</b><span class="small">${c.standard} · Mastery ${c.mastery}% · Accuracy ${c.accuracy} · ${c.attempts} attempts · ${c.misses} misses</span><button class="btn" data-goto="${c.day-1}">Practice improvement →</button></div>`).join(''):'<p class="small">No improvement targets yet. After the learner misses questions or stays below 80% mastery, targets appear here automatically.</p>';
-  $('improvePlan').innerHTML=insights.plan.map(p=>`<div class="coachItem"><b>${p.day?`Day ${p.day}: ${esc(p.title)}`:'Plan'}</b><span class="small">${esc(p.action)}</span>${p.day!=null?`<button class="btn" data-goto="${p.day-1}">Open day →</button>`:openEndedUnlocked(S)?`<button class="btn" id="planOpenEnded">${OPEN_ENDED_ICON} Open-Ended fine-tuning →</button>`:''}</div>`).join('');
-  const planOe=$('planOpenEnded');if(planOe)planOe.onclick=()=>startOpenEnded();
-  $('masteryReview').innerHTML=TOPICS.map((t,i)=>{const u=topicUnlocked(S,i),done=S.cleared[t.id]&&S.mastery[t.id]>=PASS_MASTERY,a=S.attempts[t.id],accPct=a.n?Math.round(a.c/a.n*100):null;return`<div class="focusItem"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="tag">${S.mastery[t.id]}%${done?' ✓':''}${accPct!=null?` · ${accPct}%`:''}</span>${u?`<button class="btn alt" data-goto="${i}">Review →</button>`:'<span class="small">Locked</span>'}</div>`}).join('');
+  $('strengths').innerHTML=insights.strengths.length?insights.strengths.map(formatInsightChip).map(c=>`<div class="coachItem"><b>${c.icon} Day ${c.day}: ${esc(c.title)}</b><span class="small">${c.standard} · Mastery ${c.mastery}% · Accuracy ${c.accuracy} · ${c.attempts} attempts · ${c.misses} misses</span></div>`).join(''):'<p class="small">No strengths yet — need solid practice evidence (accuracy and mastery) on a day first.</p>';
+  $('improvements').innerHTML=insights.improvements.length?insights.improvements.map(row=>{const plan=insights.plan.find(p=>p.topicId===row.topic.id);return improvementPreviewHtml(row.topic,plan?.action||`Focus Day ${TOPICS.indexOf(row.topic)+1}: ${row.topic.title}`,{forParent:true})}).join(''):'<p class="small">No improvement targets yet. After the learner misses questions or stays below 80% mastery, targets appear here automatically.</p>';
+  $('improvePlan').innerHTML=`<div class="parentNote">👁 Parent/Admin view is read-only. Practice / GIF boost buttons are student-only on the home coaching plan so adults reviewing here do not start practice or change progress.</div>`+(insights.plan.filter(p=>p.day!=null).length?insights.plan.filter(p=>p.day!=null).map(p=>improvementPreviewHtml(TOPICS[p.day-1],p.action,{forParent:true})).join(''):insights.plan.map(p=>`<div class="coachItem"><b>${esc(p.title||'Plan')}</b><span class="small">${esc(p.action)}</span></div>`).join(''));
+  $('masteryReview').innerHTML=TOPICS.map((t,i)=>{const u=topicUnlocked(S,i),done=S.cleared[t.id]&&S.mastery[t.id]>=PASS_MASTERY,a=S.attempts[t.id],accPct=a.n?Math.round(a.c/a.n*100):null;return`<div class="focusItem"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="tag">${S.mastery[t.id]}%${done?' ✓':''}${accPct!=null?` · ${accPct}%`:''}</span></div>`}).join('');
   $('syllabusGaps').innerHTML=SYLLABUS_GAPS.map(g=>`<div class="gapItem"><b>${esc(g.domain)}</b><span class="small">${esc(g.missing)}</span></div>`).join('');
   const counts={},reasons={};for(const e of S.errorLog){counts[e.topic]=(counts[e.topic]||0)+1;if(e.reason)reasons[e.reason]=(reasons[e.reason]||0)+1}
   if(!S.errorLog.length){$('focus').innerHTML='<div class="feedback good">🌟 No mistakes logged yet — great start! Focus areas will appear here as the learner practices.</div>'}
   else{
     const top=Object.entries(counts).filter(([id])=>id!==OPEN_ENDED_ID).sort((a,b)=>b[1]-a[1]).slice(0,3),topReason=Object.entries(reasons).sort((a,b)=>b[1]-a[1])[0];
-    const items=top.map(([id,n])=>{const idx=TOPICS.findIndex(x=>x.id===id),t=TOPICS[idx];if(!t)return'';return`<div class="focusItem"><span class="skillName">${t.icon} Day ${idx+1}: ${esc(t.title)}</span><span class="tag">${n} miss${n===1?'':'es'}</span><button class="btn alt" data-goto="${idx}">Review →</button></div>`}).join('');
-    $('focus').innerHTML=`<p class="small">Topics with the most missed questions${topReason?` • most common slip-up: <b>${esc(topReason[0])}</b>`:''}. Tap Review to practice that day again.</p>${items}`;
+    const items=top.map(([id,n])=>{const idx=TOPICS.findIndex(x=>x.id===id),t=TOPICS[idx];if(!t)return'';return`<div class="focusItem"><span class="skillName">${t.icon} Day ${idx+1}: ${esc(t.title)}</span><span class="tag">${n} miss${n===1?'':'es'}</span></div>`}).join('');
+    $('focus').innerHTML=`<p class="small">Topics with the most missed questions${topReason?` • most common slip-up: <b>${esc(topReason[0])}</b>`:''}. Ask the student to use their coaching plan Practice button (parent view stays read-only).</p>${items}`;
   }
   $('skills').innerHTML=WEEKS.map(w=>{const rows=TOPICS.map((t,i)=>({t,i})).filter(o=>o.t.week===w.week).map(({t,i})=>{const m=S.mastery[t.id],u=topicUnlocked(S,i),done=S.cleared[t.id]&&m>=PASS_MASTERY;return`<div class="skillRow ${done?'done':''} ${u?'':'locked'}"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="skillPct">${m}%${done?' ✓':''}</span><div class="bar"><i style="width:${m}%"></i></div></div>`}).join('');return`<div class="weekBlock"><h3>Week ${w.week}: ${esc(w.title)} <small>${esc(w.standard)}</small></h3>${rows}</div>`}).join('');
   renderFocusPins();
-  document.querySelectorAll('#dashboard [data-goto]').forEach(b=>b.onclick=()=>{const i=Number(b.dataset.goto);if(topicUnlocked(S,i))startLesson(i);else $('pinMsg').textContent='That day is locked until earlier days are completed.'});
 }
 function exportProgress(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mathquest7-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function changePin(){const p=prompt('New 4-digit parent PIN');if(/^\d{4}$/.test(p)){localStorage.mq7ParentPin=p;alert('PIN updated.')}else if(p!==null)alert('PIN must be exactly 4 digits.')}
