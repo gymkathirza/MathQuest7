@@ -57,7 +57,7 @@ jobs:
           BASE="origin/${{ github.base_ref }}"
           CHANGED="$(git diff --name-only "$BASE"...HEAD)"
 
-          DEPLOYED_PATTERN='^(index\.html|css/app\.css|js/app\.js|js/curriculum\.mjs|js/daily-session\.mjs|js/practice-timer\.mjs|js/mastery-session\.mjs|js/learner-insights\.mjs|js/coach-visuals\.mjs|js/rewards\.mjs|sw\.js|manifest\.webmanifest|icon\.svg|config\.js)$'
+          DEPLOYED_PATTERN='^(index\.html|css/app\.css|js/app\.js|js/curriculum\.mjs|js/daily-session\.mjs|js/practice-timer\.mjs|js/mastery-session\.mjs|js/learner-insights\.mjs|js/coach-visuals\.mjs|js/rewards\.mjs|sw\.js|manifest\.webmanifest|icon\.svg|config\.js|assets/realm/)'
 
           if echo "$CHANGED" | grep -Eq "$DEPLOYED_PATTERN"; then
             if ! echo "$CHANGED" | grep -qx 'version.json'; then
