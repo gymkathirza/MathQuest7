@@ -4,13 +4,13 @@ import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shoul
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
-import {REALM_BUILDINGS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,canBuyBuilding,computeTrophies,heroTitle,COINS_BREAK_BONUS} from './rewards.mjs';
+import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById} from './rewards.mjs';
 const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
-function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],breaksCompleted:0}}
-let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
-function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.realm=Array.isArray(s.realm)?s.realm:[];delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
+function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0}}
+let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,previewTimer=null,realmPreview=null,runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
+function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome())renderRealm()}
 function renderTop(){
   $('xp').textContent=S.xp;$('streak').textContent=S.streak;
@@ -36,7 +36,7 @@ function go(id){
   if(id==='home')renderMap();
   if(id!=='parent'){noteActivity();resumePractice()}
 }
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.18.0'}}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.19.0'}}
 function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
@@ -74,22 +74,54 @@ function renderMap(){
 }
 function renderRealm(){
   const box=$('realmShop');if(!box)return;
-  const owned=new Set(S.realm||[]);
-  const built=REALM_BUILDINGS.filter(b=>owned.has(b.id));
-  const shop=REALM_BUILDINGS.map(b=>{
-    const have=owned.has(b.id);
-    const check=canBuyBuilding(S,b.id);
-    const btn=have?`<span class="tag">Built ✓</span>`:`<button class="btn ${check.ok?'':'alt'}" data-buy="${b.id}" ${check.ok?'':'disabled'}>${check.ok?`Build · ${b.cost} 🪙`:`Need ${b.cost} 🪙`}</button>`;
-    return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${b.icon}</div><b>${esc(b.name)}</b><span class="small">${esc(b.blurb)}</span>${btn}</div>`;
+  renderRealmStage();
+  const ownedB=new Set(S.realm||[]),ownedP=new Set(S.pets||[]),ownedS=new Set(S.petSkins||[]);
+  const buildings=REALM_BUILDINGS.map(b=>{
+    const have=ownedB.has(b.id),check=canBuyBuilding(S,b.id);
+    const buy=have?`<span class="tag">Built ✓</span>`:`<button class="btn ${check.ok?'':'alt'}" data-buy-building="${b.id}" ${check.ok?'':'disabled'}>${check.ok?`Build · ${b.cost} 🪙`:`Need ${b.cost} 🪙`}</button>`;
+    return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${b.icon}</div><b>${esc(b.name)}</b><span class="small">${esc(b.blurb)}</span><div class="realmActions"><button class="btn alt" data-preview-building="${b.id}">👁 Preview</button>${buy}</div></div>`;
   }).join('');
-  box.innerHTML=`<p class="small">Title: <b>${esc(heroTitle(S.xp))}</b> · Coins: <b>${S.coins}</b> · Buildings: <b>${built.length}/${REALM_BUILDINGS.length}</b>. Coins are cosmetic only — they never unlock lessons or skip mastery.</p>
-<div class="realmBuilt">${built.length?built.map(b=>`<span class="chip">${b.icon} ${esc(b.name)}</span>`).join(''):'<span class="small">No buildings yet — earn coins from correct answers, day clears, and healthy breaks!</span>'}</div>
-<div class="realmGrid">${shop}</div>`;
-  box.querySelectorAll('[data-buy]').forEach(btn=>btn.onclick=()=>{
-    const res=buyBuilding(S,btn.dataset.buy);
-    if(!res.ok){showToast(res.reason||'Cannot build yet',4000);return}
-    save();showToast(`${res.building.icon} ${res.building.name} built!`,4000);
-  });
+  const pets=REALM_PETS.map(p=>{
+    const have=ownedP.has(p.id),check=canBuyPet(S,p.id),active=S.activePet===p.id;
+    const buy=have?`<button class="btn alt" data-equip-pet="${p.id}">${active?'Active ✓':'Make active'}</button>`:`<button class="btn ${check.ok?'':'alt'}" data-buy-pet="${p.id}" ${check.ok?'':'disabled'}>${check.ok?`Adopt · ${p.cost} 🪙`:`Need ${p.cost} 🪙`}</button>`;
+    return`<div class="realmCard ${have?'owned':''} ${active?'activePet':''}"><div class="realmIcon">${p.icon}</div><b>${esc(p.name)}</b><span class="small">${esc(p.blurb)}</span><div class="realmActions"><button class="btn alt" data-preview-pet="${p.id}">👁 Preview</button>${buy}</div></div>`;
+  }).join('');
+  const skins=REALM_PET_SKINS.map(sk=>{
+    const have=ownedS.has(sk.id),check=canBuyPetSkin(S,sk.id),pet=petById(sk.petId),equipped=S.activePetSkin===sk.id;
+    const buy=have?`<button class="btn alt" data-equip-skin="${sk.id}" ${S.activePet===sk.petId?'':'disabled'}>${equipped?'Wearing ✓':'Wear'}</button>`:`<button class="btn ${check.ok?'':'alt'}" data-buy-skin="${sk.id}" ${check.ok?'':'disabled'}>${check.ok?`Buy · ${sk.cost} 🪙`:`${check.reason==='Adopt that pet first'?'Need pet':`Need ${sk.cost} 🪙`}`}</button>`;
+    return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${pet?.icon||''}${sk.icon}</div><b>${esc(sk.name)}</b><span class="small">${esc(sk.blurb)} · for ${esc(pet?.name||sk.petId)}</span><div class="realmActions"><button class="btn alt" data-preview-skin="${sk.id}">👁 Preview</button>${buy}</div></div>`;
+  }).join('');
+  box.innerHTML=`<p class="small">Title: <b>${esc(heroTitle(S.xp))}</b> · Coins: <b>${S.coins}</b> · Buildings ${ownedB.size}/${REALM_BUILDINGS.length} · Pets ${ownedP.size}/${REALM_PETS.length}. Tap <b>Preview</b> to see it glow in the main realm window for a few seconds (free). Cosmetics never unlock lessons.</p>
+<p><b>Buildings</b></p><div class="realmGrid">${buildings}</div>
+<p><b>Pets</b></p><div class="realmGrid">${pets}</div>
+<p><b>Pet skins</b></p><div class="realmGrid">${skins}</div>`;
+  box.querySelectorAll('[data-preview-building]').forEach(b=>b.onclick=()=>previewRealmItem({type:'building',id:b.dataset.previewBuilding}));
+  box.querySelectorAll('[data-preview-pet]').forEach(b=>b.onclick=()=>previewRealmItem({type:'pet',id:b.dataset.previewPet}));
+  box.querySelectorAll('[data-preview-skin]').forEach(b=>b.onclick=()=>previewRealmItem({type:'skin',id:b.dataset.previewSkin}));
+  box.querySelectorAll('[data-buy-building]').forEach(b=>b.onclick=()=>{const res=buyBuilding(S,b.dataset.buyBuilding);if(!res.ok)return showToast(res.reason,4000);save();showToast(`${res.building.icon} ${res.building.name} built!`,4000)});
+  box.querySelectorAll('[data-buy-pet]').forEach(b=>b.onclick=()=>{const res=buyPet(S,b.dataset.buyPet);if(!res.ok)return showToast(res.reason,4000);save();showToast(`${res.pet.icon} ${res.pet.name} joined your realm!`,4000)});
+  box.querySelectorAll('[data-buy-skin]').forEach(b=>b.onclick=()=>{const res=buyPetSkin(S,b.dataset.buySkin);if(!res.ok)return showToast(res.reason,4000);save();showToast(`${res.skin.icon} ${res.skin.name} unlocked!`,4000)});
+  box.querySelectorAll('[data-equip-pet]').forEach(b=>b.onclick=()=>{const res=setActivePet(S,b.dataset.equipPet);if(!res.ok)return showToast(res.reason,4000);save();showToast('Pet is now active in your realm',3500)});
+  box.querySelectorAll('[data-equip-skin]').forEach(b=>b.onclick=()=>{const res=setActivePetSkin(S,b.dataset.equipSkin);if(!res.ok)return showToast(res.reason,4000);save();showToast('Skin equipped',3500)});
+}
+function renderRealmStage(){
+  const stage=$('realmStage');if(!stage)return;
+  const view=realmStageView(S,realmPreview);
+  const plots=view.buildings.map(b=>`<div class="realmPlot" title="${esc(b.name)}"><span>${b.icon}</span><small>${esc(b.name)}</small></div>`).join('');
+  const ghost=view.ghostBuilding?`<div class="realmPlot ghost pulse" title="Preview"><span>${view.ghostBuilding.icon}</span><small>Preview</small></div>`:'';
+  const pet=view.petIcon?`<div class="realmPet ${view.isPreview&&(realmPreview?.type==='pet'||realmPreview?.type==='skin')?'ghost pulse':''}" title="${esc(view.pet?.name||'Pet')}"><span>${view.petIcon}</span><small>${esc(view.skin?view.skin.name:view.pet?.name||'')}</small></div>`:`<div class="realmPet empty"><small>No pet yet</small></div>`;
+  const banner=view.previewLabel?`<div class="realmPreviewBanner">${esc(view.previewLabel)} · free peek for ${Math.round(REALM_PREVIEW_MS/1000)}s</div>`:'';
+  stage.innerHTML=`${banner}<div class="realmSky"><div class="realmGround">${plots}${ghost}${pet}</div></div>`;
+  if(view.isPreview)stage.classList.add('previewing');else stage.classList.remove('previewing');
+}
+function previewRealmItem(item){
+  clearTimeout(previewTimer);
+  realmPreview=item;
+  renderRealmStage();
+  const stage=$('realmStage');
+  if(stage){stage.scrollIntoView({behavior:'smooth',block:'center'});}
+  showToast('Preview playing in My Realm window…',2500);
+  previewTimer=setTimeout(()=>{realmPreview=null;renderRealmStage()},REALM_PREVIEW_MS);
 }
 function nextDayIndex(){const i=TOPICS.findIndex((t,j)=>topicUnlocked(S,j)&&!S.cleared[t.id]);return i<0?TOPICS.length-1:i}
 function updateContinueLabel(){const allDone=allTopicsCleared(S);$('continueBtn').textContent=allDone?`▶ ${OPEN_ENDED_ICON} Open-Ended Mastery`:`▶ Start / Continue Today (Day ${nextDayIndex()+1})`}

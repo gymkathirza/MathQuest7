@@ -19,7 +19,7 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 - Immediate feedback after every answer.
 - Explanations after mistakes so the learner can understand the method instead of only seeing the correct answer.
 - Optional hints for difficult problems.
-- XP, coins (streak-boosted), streaks, hero titles, and My Realm cosmetic buildings.
+- XP, coins (streak-boosted), streaks, hero titles, My Realm buildings, pets, and pet skins (with free Preview).
 - A realm-building reward system (coins never unlock lessons or skip mastery).
 - An active daily practice timer (~60-minute pacing target) that pauses on breaks, hidden tabs, and 5+ minutes away, and resets each day.
 - A movement/water/eye-rest checkpoint around the middle of a session.
@@ -27,10 +27,22 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 - Open-Ended Mastery Quest after all 20 days (mixed advanced NC.7 practice across the full spine).
 - Strengths / improvements coaching on both the student home and Parent/Admin dashboard (GIF-style step previews; Practice is student-only), with optional parent-pinned fine-tuning for open-ended practice.
 - Open-ended mastery (after Day 20): student header shows yesterday + today active mastery time; Parent/Admin table lists Day 21+ practice hours (active time only; 20-minute break rule retained).
-- Parent dashboard with overall accuracy, problems solved, XP, best streak, and mastery by math zone.
+- Parent dashboard with overall accuracy, problems solved, XP, coins, trophies, best streak, and mastery by math zone.
 - Automatic local progress saving.
 - Progressive Web App (PWA) support so the game can be added to an iPad or phone Home Screen.
 - Offline support after the game has been loaded successfully from the web at least once.
+
+## How coins, XP, and My Realm work
+
+Rewards are cosmetic only — they never unlock lessons or skip Exit Tickets.
+
+| Earn | Amount |
+| --- | --- |
+| Correct answer | +10 coins (+20 XP). Streak 5–9 → ×1.5 coins; streak 10+ → ×2 coins |
+| Day cleared | +100 coins (+50 XP) |
+| Healthy break finished | +25 coins |
+
+**Spend:** buildings, pets, and pet skins in **My Realm**. Tap **👁 Preview** to see the item in the main realm window for ~3.5 seconds (free). Then Build / Adopt / Buy when ready.
 
 ## How to play
 
@@ -43,8 +55,8 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 7. Use **Hint** whenever help is needed.
 8. As mastery improves, the game increases the challenge level automatically.
 9. Reach the required mastery in one zone to unlock the next zone.
-10. Open **My Realm** to spend earned coins on buildings and cosmetic rewards.
-11. Open **Parent** to review learning progress.
+10. Open **My Realm** — Preview items in the main window, then spend coins on buildings, pets, and skins.
+11. Open **Parent / Admin** to review learning progress, coins, and trophies.
 
 The game is intentionally mastery-oriented. Speed is not required, and mistakes are used as learning signals rather than as a reason to heavily penalize the learner.
 
@@ -265,7 +277,7 @@ The project is organized by category:
 - `js/app.js` — UI flow, session timer/breaks, parent dashboard, progress saving
 - `js/practice-timer.mjs` — active daily practice-time helpers (day reset, idle/hidden pause rules)
 - `js/mastery-session.mjs` — completed-day mastery replay + open-ended mixed advanced sets
-- `js/rewards.mjs` — coins, streak multipliers, My Realm buildings, trophies
+- `js/rewards.mjs` — coins, streak multipliers, My Realm buildings/pets/skins, preview helpers, trophies
 - `js/learner-insights.mjs` — strengths/improvements/plan + focus resolution + syllabus gap notes
 - `js/coach-visuals.mjs` — praise copy + GIF-style CSS animated boost steps per topic
 - `js/curriculum.mjs` — 20-topic curriculum and per-topic question generators
