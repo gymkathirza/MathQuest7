@@ -14,16 +14,48 @@ Replace emoji-only My Realm visuals with a consistent **isometric diorama** look
 |--------|----------|
 | Visual style | **C — Isometric diorama** |
 | Practice placement | **1 — Corner companion strip** (bottom-right) |
-| Asset sourcing | **C — Hybrid**: free CC0 isometric buildings + generated pets/skins |
+| Asset sourcing | **C — Hybrid**: license-safe free/open buildings + generated pets/skins |
 | Surface coverage | **1 — One art system everywhere**: My Realm shop cards, stage, Free Preview, and practice strip |
+| Licensing | **Strict**: only clearly free/open redistributable assets, or assets we generate for MathQuest |
+
+## Licensing (hard rules)
+
+MathQuest 7 is a public GitHub Pages project. Every vendored image must be safe to redistribute in this repo and ship to learners offline.
+
+### Allowed sources
+
+1. **Generated for MathQuest** (preferred when a matching free pack is unclear) — still WebP/PNG isometric art created for this project; record `Source: generated for MathQuest 7` + date in `assets/realm/LICENSE.md`. Treat as project-owned art for this repo.
+2. **CC0 / public domain** packs (e.g. many [Kenney.nl](https://kenney.nl/assets) packs) — may be used without attribution, but we still list pack name + URL in `LICENSE.md` for provenance.
+3. **CC-BY / CC-BY-SA** (or equivalent OSI-friendly / Creative Commons) — only if redistribution in a public app is clearly allowed; keep required attribution text in `assets/realm/LICENSE.md` (and a short credit line in README or PRIVACY-adjacent docs only if the license requires public display).
+
+### Forbidden
+
+- Assets with **unclear**, **missing**, or **“personal use only”** licenses
+- **Freepik / Adobe Stock / shutterstock**-style downloads unless the specific file is explicitly free for redistribution under a clear OSS/CC license (default: do not use)
+- **Giphy / random GIF hosts / CDN hotlinks**
+- Packs that ban use in **educational**, **online**, or **redistributed** products
+- Anything requiring a paid commercial license we have not purchased and documented
+- “Free for personal use” itch/Craftpix freebies that disallow redistribution in a public game/app — **skip**; generate instead
+
+### Process before shipping any third-party file
+
+1. Confirm license text on the **official** pack page (not a mirror).
+2. Prefer **CC0**; if not CC0, copy the exact attribution string into `assets/realm/LICENSE.md`.
+3. If license is ambiguous after a short check → **do not vendor**; **generate** the building/pet/skin instead.
+4. Smoke/CI may assert `assets/realm/LICENSE.md` exists and that every shipped `art` path is under `assets/realm/`.
+
+### Hybrid default in practice
+
+- Buildings: start with a **verified CC0** isometric pack; if a themed construct has no good match, **generate** that building.
+- Pets + skins: **generate** the full set for style consistency (no third-party character packs unless they pass the same license gate).
 
 ## Non-goals (this change)
 
 - Syllabus / week-gated building unlocks or coin-pacing redesign
-- Animated pet idle loops (GIF/Lottie) — may follow later on the same asset paths
+- Animated pet idle loops (GIF/Lottie) — may follow later on the same asset paths (same license rules)
 - External CDN or runtime fetch of art (privacy + offline PWA)
 - Changing coin economy, costs, or shop catalog IDs
-
+- Using paid or ambiguously licensed marketplace art
 ## Current behavior (baseline)
 
 - Owned buildings live in `state.realm[]`; pets in `state.pets[]`; skins in `state.petSkins[]`; active selection via `activePet` / `activePetSkin`.
@@ -56,9 +88,9 @@ Extend each catalog entry (keep existing `id`, `name`, `cost`, `blurb`, `icon` e
 - Helper: `companionStripView(state)` → `{ pet: {src, alt, fallbackIcon}, buildings: [...up to 4], overflow: N }` derived from owned + active pet/skin
 - Keep emoji as **fallback** if image fails to load (`onerror` → show `icon`)
 
-Building pack: prefer **Kenney** (or equivalent **CC0**) isometric town/nature tiles, remapped/cropped to square-ish sprites named by building id. Document exact pack name + URL in `assets/realm/LICENSE.md`.
+Buildings: prefer a **verified CC0** isometric pack (Kenney or equivalent); crop/remap to square-ish sprites named by building id. If no license-safe match exists for an id, **generate** that sprite instead of stretching a questionable freebie. Document every third-party pack (name, URL, license, date checked) and every generated file group in `assets/realm/LICENSE.md`.
 
-Pets/skins: generate a consistent isometric-friendly set (still PNG/WebP, not emoji). Skins are tint or accessory variants of the same pet silhouette so shop “Wear” remains meaningful.
+Pets/skins: **generate** a consistent isometric-friendly set (WebP/PNG). Skins are tint or accessory variants of the same pet silhouette so shop “Wear” remains meaningful. Do not pull third-party character art unless it passes the Licensing hard rules above.
 
 ### UI surfaces
 
@@ -123,4 +155,5 @@ No new network calls, analytics, or remote image hosts. Parent export/reset beha
 
 - Strip shows **owned** state only (not Free Preview ghosts).  
 - Building selection for strip: **last 4 entries** in `state.realm` (purchase order).  
-- Skin rendering: prefer dedicated `art` per skin id when provided; else base pet `art` + optional `overlay`.
+- Skin rendering: prefer dedicated `art` per skin id when provided; else base pet `art` + optional `overlay`.  
+- Licensing: only CC0/public domain, clearly redistributable CC-BY(-SA), or MathQuest-generated art; when in doubt, generate.
