@@ -25,6 +25,7 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 - A movement/water/eye-rest checkpoint around the middle of a session.
 - Parent/Admin practice knobs: Exit Ticket volume for new days, plus mastery-replay volume for completed days / open-ended quest.
 - Open-Ended Mastery Quest after all 20 days (mixed advanced NC.7 practice across the full spine).
+- Strengths / improvements coaching on both the student home and Parent/Admin dashboard, with optional parent-pinned fine-tuning for open-ended practice.
 - Parent dashboard with overall accuracy, problems solved, XP, best streak, and mastery by math zone.
 - Automatic local progress saving.
 - Progressive Web App (PWA) support so the game can be added to an iPad or phone Home Screen.
@@ -263,6 +264,7 @@ The project is organized by category:
 - `js/app.js` — UI flow, session timer/breaks, parent dashboard, progress saving
 - `js/practice-timer.mjs` — active daily practice-time helpers (day reset, idle/hidden pause rules)
 - `js/mastery-session.mjs` — completed-day mastery replay + open-ended mixed advanced sets
+- `js/learner-insights.mjs` — strengths/improvements/plan + focus resolution + syllabus gap notes
 - `js/curriculum.mjs` — 20-topic curriculum and per-topic question generators
 - `js/daily-session.mjs` — canonical 10-question 3/4/3 daily benchmark generator
 - `sw.js` — service worker used for offline caching

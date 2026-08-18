@@ -28,28 +28,29 @@ export function generateMasteryBenchmark(topicId){
 }
 
 /**
- * Mixed open-ended set spanning all (or provided) days.
- * Rotates topics so practice composes the full 20-day spine without feeling repetitive.
+ * Mixed open-ended set. Prefer focusTopicIds (improvements / parent pins); fill from full spine.
+ * About 70% of items come from the focus pool when it is non-empty.
  */
-export function generateOpenEndedBenchmark(topicIds=TOPICS.map(t=>t.id)){
-  const pool=topicPool(topicIds);
-  if(!pool.length)throw new Error('No topics available for open-ended practice');
-  const order=[];
+export function generateOpenEndedBenchmark(topicIds=TOPICS.map(t=>t.id),{focusTopicIds=null,focusShare=0.7}={}){
+  const all=topicPool(topicIds);
+  const focus=topicPool(focusTopicIds&&focusTopicIds.length?focusTopicIds:all);
+  if(!all.length)throw new Error('No topics available for open-ended practice');
   const levels=[
     ...Array(MASTERY_LEVEL_COUNTS.standard).fill('standard'),
     ...Array(MASTERY_LEVEL_COUNTS.complex).fill('complex'),
     ...Array(MASTERY_LEVEL_COUNTS.word).fill('word')
   ];
-  let cursor=Math.floor(Math.random()*pool.length);
+  const focusSlots=Math.max(1,Math.round(CORE_DAILY_COUNT*focusShare));
+  const order=[];
   for(let i=0;i<CORE_DAILY_COUNT;i++){
-    const topicId=pool[(cursor+i)%pool.length];
-    const level=levels[i];
-    order.push({...generateTieredProblem(topicId,level),number:i+1,topicId});
+    const pool=i<focusSlots?focus:(all.length?all:focus);
+    const topicId=pool[Math.floor(Math.random()*pool.length)];
+    order.push({...generateTieredProblem(topicId,levels[i]),number:i+1,topicId,focused:focus.includes(topicId)});
   }
   return order.sort(()=>Math.random()-.5).map((q,i)=>({...q,number:i+1}));
 }
 
-export function openEndedRecapHtml(){
+export function openEndedRecapHtml({focusTitles=[],planLines=[],modeLabel=''}={}){
   const byWeek={};
   for(const t of TOPICS){(byWeek[t.week]=byWeek[t.week]||[]).push(t)}
   const weeks=Object.keys(byWeek).sort((a,b)=>a-b).map(w=>{
@@ -57,10 +58,20 @@ export function openEndedRecapHtml(){
     const std=w==='1'?'NC.7.NS':w==='2'?'NC.7.RP':w==='3'?'NC.7.EE':'NC.7.G / NC.7.SP';
     return `<div class="weekBlock"><h3>Week ${w} · ${std}</h3><ul class="recapList">${items}</ul></div>`;
   }).join('');
+  const focusBlock=focusTitles.length
+    ?`<p class="concept"><b>Today’s fine-tuning focus:</b> ${focusTitles.map(escText).join(' · ')}</p><p class="small">${escText(modeLabel||'Focused from your improvement plan.')}</p>`
+    :`<p class="small">Practice will mix all 20 days until there is enough history for a personalized focus.</p>`;
+  const planBlock=planLines.length
+    ?`<h3>Improvement plan</h3><ul class="recapList">${planLines.map(l=>`<li>${escText(l)}</li>`).join('')}</ul>`
+    :'';
   return `<h2>${OPEN_ENDED_ICON} ${OPEN_ENDED_TITLE}</h2>
-<p class="concept">You finished the 20-day Summer Quest spine. This open-ended quest keeps Union County / NC Grade 7 skills sharp with mixed, more advanced practice across every day you learned.</p>
-<p class="small">Expect more multi-step and NC real-world items (Monroe, Waxhaw, Indian Trail, Charlotte, and more). There is no final “unlock” gate — keep practicing as long as you like.</p>
+<p class="concept">You finished the 20-day Summer Quest spine. This open-ended quest keeps Union County / NC Grade 7 skills sharp with mixed, more advanced practice — weighted toward areas that need fine-tuning.</p>
+${focusBlock}${planBlock}
+<p class="small">Expect more multi-step and NC real-world items. There is no final unlock gate — keep practicing as long as you like.</p>
 ${weeks}`;
 }
+
+function escText(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
+
 
 export {NC_LOCATIONS,CORE_DAILY_COUNT};
