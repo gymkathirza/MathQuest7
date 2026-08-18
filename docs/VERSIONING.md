@@ -15,6 +15,7 @@ The CI workflow enforces this rule for these production-facing files:
 - `js/daily-session.mjs`
 - `js/practice-timer.mjs`
 - `js/mastery-session.mjs`
+- `js/learner-insights.mjs`
 - `sw.js`
 - `manifest.webmanifest`
 - `icon.svg`
