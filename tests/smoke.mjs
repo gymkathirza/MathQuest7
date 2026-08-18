@@ -43,6 +43,8 @@ assert.ok(indexSource.includes('masteryTimePill'),'Student header must show mast
 assert.ok(/resetMasterySession|flushMasterySegment|masteryPracticeByDay/.test(appSource),'Open-ended mastery must track per-day active practice time');
 assert.ok(/from ['"]\.\/rewards\.mjs['"]/.test(appSource),'UI must import rewards helpers');
 assert.ok(/previewRealmItem|buyPet|realmTab|Pet Store|Free Preview/.test(appSource),'UI must expose Pet Store tab and free previews');
+assert.ok(swSource.includes('rewards.mjs'),'Service worker must cache rewards.mjs');
+assert.ok(indexSource.includes('realmShop'),'Home must include My Realm shop');
 assert.ok(indexSource.includes('realmStage'),'Home must include My Realm main stage for previews');
 assert.ok(indexSource.includes('Pet Store'),'My Realm copy must mention Pet Store');
 assert.ok(indexSource.includes('trophies'),'Parent panel must show trophies');
