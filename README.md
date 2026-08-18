@@ -19,8 +19,8 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 - Immediate feedback after every answer.
 - Explanations after mistakes so the learner can understand the method instead of only seeing the correct answer.
 - Optional hints for difficult problems.
-- XP, coins, streaks, mastery levels, and unlockable buildings.
-- A realm-building reward system that gives learners a reason to continue practicing.
+- XP, coins (streak-boosted), streaks, hero titles, and My Realm cosmetic buildings.
+- A realm-building reward system (coins never unlock lessons or skip mastery).
 - An active daily practice timer (~60-minute pacing target) that pauses on breaks, hidden tabs, and 5+ minutes away, and resets each day.
 - A movement/water/eye-rest checkpoint around the middle of a session.
 - Parent/Admin practice knobs: Exit Ticket volume for new days, plus mastery-replay volume for completed days / open-ended quest.
@@ -265,6 +265,7 @@ The project is organized by category:
 - `js/app.js` — UI flow, session timer/breaks, parent dashboard, progress saving
 - `js/practice-timer.mjs` — active daily practice-time helpers (day reset, idle/hidden pause rules)
 - `js/mastery-session.mjs` — completed-day mastery replay + open-ended mixed advanced sets
+- `js/rewards.mjs` — coins, streak multipliers, My Realm buildings, trophies
 - `js/learner-insights.mjs` — strengths/improvements/plan + focus resolution + syllabus gap notes
 - `js/coach-visuals.mjs` — praise copy + GIF-style CSS animated boost steps per topic
 - `js/curriculum.mjs` — 20-topic curriculum and per-topic question generators
