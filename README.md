@@ -19,7 +19,7 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 - Immediate feedback after every answer.
 - Explanations after mistakes so the learner can understand the method instead of only seeing the correct answer.
 - Optional hints for difficult problems.
-- XP, coins (streak-boosted), streaks, hero titles, My Realm buildings, pets, and pet skins (with free Preview).
+- XP, coins (streak-boosted), streaks, hero titles, My Realm isometric buildings/pets/skins (with free Preview and a practice-corner companion strip).
 - A realm-building reward system (coins never unlock lessons or skip mastery).
 - An active daily practice timer (~60-minute pacing target) that pauses on breaks, hidden tabs, and 5+ minutes away, and resets each day.
 - A movement/water/eye-rest checkpoint around the middle of a session.
@@ -41,6 +41,8 @@ Rewards are cosmetic only — they never unlock lessons or skip Exit Tickets.
 | Correct answer | +10 coins (+20 XP). Streak 5–9 → ×1.5 coins; streak 10+ → ×2 coins |
 | Day cleared | +100 coins (+50 XP) |
 | Healthy break finished | +25 coins |
+
+Owned pets and buildings also show in a small **corner strip** while practicing (cosmetic only).
 
 ### My Realm store (tabs)
 
@@ -295,7 +297,8 @@ The project is organized by category:
 - `js/app.js` — UI flow, session timer/breaks, parent dashboard, progress saving
 - `js/practice-timer.mjs` — active daily practice-time helpers (day reset, idle/hidden pause rules)
 - `js/mastery-session.mjs` — completed-day mastery replay + open-ended mixed advanced sets
-- `js/rewards.mjs` — coins, streak multipliers, My Realm buildings/pets/skins, preview helpers, trophies
+- `js/rewards.mjs` — coins, streak multipliers, My Realm buildings/pets/skins, isometric art helpers, practice companion strip, trophies
+- `assets/realm/` — license-safe generated isometric SVG art for My Realm
 - `js/learner-insights.mjs` — strengths/improvements/plan + focus resolution + syllabus gap notes
 - `js/coach-visuals.mjs` — praise copy + GIF-style CSS animated boost steps per topic
 - `js/curriculum.mjs` — 20-topic curriculum and per-topic question generators

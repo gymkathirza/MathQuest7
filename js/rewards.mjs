@@ -8,6 +8,7 @@ export const COINS_PER_CORRECT=10;
 export const COINS_DAY_CLEAR=100;
 export const COINS_BREAK_BONUS=25;
 export const REALM_PREVIEW_MS=3500;
+export const COMPANION_BUILDING_LIMIT=4;
 
 /** Streak after a correct answer → coin multiplier (XP stays flat). */
 export function streakCoinMultiplier(streakAfterCorrect){
@@ -22,44 +23,72 @@ export function coinsForCorrect(streakAfterCorrect){
 }
 
 export const REALM_BUILDINGS=[
-  {id:'signpost',name:'Signpost Camp',icon:'🏕️',cost:50,blurb:'Your quest base camp.'},
-  {id:'banner',name:'Quest Banner',icon:'🚩',cost:60,blurb:'A flag for every cleared day.'},
-  {id:'bridge',name:'Number Line Bridge',icon:'🌉',cost:80,blurb:'Cross from negative to positive.'},
-  {id:'arena',name:'Tug-of-War Arena',icon:'🏟️',cost:100,blurb:'Where opposite signs settle scores.'},
-  {id:'garden',name:'Fraction Garden',icon:'🌻',cost:120,blurb:'Equal plots for equal denominators.'},
-  {id:'market',name:'Ratio Market',icon:'🏪',cost:150,blurb:'Unit rates for every stall.'},
-  {id:'lab',name:'Algebra Lab',icon:'🧪',cost:180,blurb:'Distribute, combine, solve.'},
-  {id:'tower',name:'Balance Tower',icon:'🗼',cost:200,blurb:'Keep both sides even.'},
-  {id:'observatory',name:'Circle Observatory',icon:'🔭',cost:220,blurb:'π under the stars.'},
-  {id:'fountain',name:'Probability Fountain',icon:'⛲',cost:250,blurb:'Favorable drops ÷ total drops.'},
-  {id:'keep',name:'Data Keep',icon:'🏰',cost:280,blurb:'Means, samples, and stories.'},
-  {id:'statue',name:'Hero Statue',icon:'🗿',cost:300,blurb:'A monument to steady practice.'}
+  {id:'signpost',name:'Signpost Camp',icon:'🏕️',cost:50,blurb:'Your quest base camp.',art:'buildings/signpost.svg'},
+  {id:'banner',name:'Quest Banner',icon:'🚩',cost:60,blurb:'A flag for every cleared day.',art:'buildings/banner.svg'},
+  {id:'bridge',name:'Number Line Bridge',icon:'🌉',cost:80,blurb:'Cross from negative to positive.',art:'buildings/bridge.svg'},
+  {id:'arena',name:'Tug-of-War Arena',icon:'🏟️',cost:100,blurb:'Where opposite signs settle scores.',art:'buildings/arena.svg'},
+  {id:'garden',name:'Fraction Garden',icon:'🌻',cost:120,blurb:'Equal plots for equal denominators.',art:'buildings/garden.svg'},
+  {id:'market',name:'Ratio Market',icon:'🏪',cost:150,blurb:'Unit rates for every stall.',art:'buildings/market.svg'},
+  {id:'lab',name:'Algebra Lab',icon:'🧪',cost:180,blurb:'Distribute, combine, solve.',art:'buildings/lab.svg'},
+  {id:'tower',name:'Balance Tower',icon:'🗼',cost:200,blurb:'Keep both sides even.',art:'buildings/tower.svg'},
+  {id:'observatory',name:'Circle Observatory',icon:'🔭',cost:220,blurb:'π under the stars.',art:'buildings/observatory.svg'},
+  {id:'fountain',name:'Probability Fountain',icon:'⛲',cost:250,blurb:'Favorable drops ÷ total drops.',art:'buildings/fountain.svg'},
+  {id:'keep',name:'Data Keep',icon:'🏰',cost:280,blurb:'Means, samples, and stories.',art:'buildings/keep.svg'},
+  {id:'statue',name:'Hero Statue',icon:'🗿',cost:300,blurb:'A monument to steady practice.',art:'buildings/statue.svg'}
 ];
 
 export const REALM_PETS=[
-  {id:'fox',name:'Integer Fox',icon:'🦊',cost:120,blurb:'Loves number lines and clever sign flips.'},
-  {id:'racer',name:'Ratio Rabbit',icon:'🐇',cost:140,blurb:'Hops at a perfect unit rate.'},
-  {id:'owl',name:'Algebra Owl',icon:'🦉',cost:160,blurb:'Hoot-hoots equations until both sides balance.'},
-  {id:'turtle',name:'Geometry Turtle',icon:'🐢',cost:180,blurb:'Steady circles and scale drawings.'},
-  {id:'otter',name:'Probability Otter',icon:'🦦',cost:200,blurb:'Counts favorable splashes in every pond.'}
+  {id:'fox',name:'Integer Fox',icon:'🦊',cost:120,blurb:'Loves number lines and clever sign flips.',art:'pets/fox.svg'},
+  {id:'racer',name:'Ratio Rabbit',icon:'🐇',cost:140,blurb:'Hops at a perfect unit rate.',art:'pets/racer.svg'},
+  {id:'owl',name:'Algebra Owl',icon:'🦉',cost:160,blurb:'Hoot-hoots equations until both sides balance.',art:'pets/owl.svg'},
+  {id:'turtle',name:'Geometry Turtle',icon:'🐢',cost:180,blurb:'Steady circles and scale drawings.',art:'pets/turtle.svg'},
+  {id:'otter',name:'Probability Otter',icon:'🦦',cost:200,blurb:'Counts favorable splashes in every pond.',art:'pets/otter.svg'}
 ];
 
 export const REALM_PET_SKINS=[
-  {id:'fox_ember',petId:'fox',name:'Ember Coat',icon:'🧡',cost:40,blurb:'Warm ember fur for Integer Fox.'},
-  {id:'fox_frost',petId:'fox',name:'Frost Coat',icon:'❄️',cost:45,blurb:'Icy frost tips for Integer Fox.'},
-  {id:'racer_stripe',petId:'racer',name:'Racing Stripes',icon:'🏁',cost:40,blurb:'Speed stripes for Ratio Rabbit.'},
-  {id:'racer_night',petId:'racer',name:'Night Runner',icon:'🌙',cost:45,blurb:'Moonlit coat for Ratio Rabbit.'},
-  {id:'owl_scholar',petId:'owl',name:'Scholar Cap',icon:'🎓',cost:40,blurb:'Tiny graduation look for Algebra Owl.'},
-  {id:'owl_star',petId:'owl',name:'Star Speckles',icon:'✨',cost:45,blurb:'Constellation feathers for Algebra Owl.'},
-  {id:'turtle_shell',petId:'turtle',name:'Pattern Shell',icon:'🔷',cost:40,blurb:'Geometry patterns on Geometry Turtle.'},
-  {id:'turtle_garden',petId:'turtle',name:'Garden Shell',icon:'🌿',cost:45,blurb:'Leafy shell for Geometry Turtle.'},
-  {id:'otter_splash',petId:'otter',name:'Splash Bandana',icon:'💙',cost:40,blurb:'Splashy scarf for Probability Otter.'},
-  {id:'otter_lucky',petId:'otter',name:'Lucky Beads',icon:'🍀',cost:45,blurb:'Lucky bead collar for Probability Otter.'}
+  {id:'fox_ember',petId:'fox',name:'Ember Coat',icon:'🧡',cost:40,blurb:'Warm ember fur for Integer Fox.',art:'pets/fox_ember.svg'},
+  {id:'fox_frost',petId:'fox',name:'Frost Coat',icon:'❄️',cost:45,blurb:'Icy frost tips for Integer Fox.',art:'pets/fox_frost.svg'},
+  {id:'racer_stripe',petId:'racer',name:'Racing Stripes',icon:'🏁',cost:40,blurb:'Speed stripes for Ratio Rabbit.',art:'pets/racer_stripe.svg'},
+  {id:'racer_night',petId:'racer',name:'Night Runner',icon:'🌙',cost:45,blurb:'Moonlit coat for Ratio Rabbit.',art:'pets/racer_night.svg'},
+  {id:'owl_scholar',petId:'owl',name:'Scholar Cap',icon:'🎓',cost:40,blurb:'Tiny graduation look for Algebra Owl.',art:'pets/owl_scholar.svg'},
+  {id:'owl_star',petId:'owl',name:'Star Speckles',icon:'✨',cost:45,blurb:'Constellation feathers for Algebra Owl.',art:'pets/owl_star.svg'},
+  {id:'turtle_shell',petId:'turtle',name:'Pattern Shell',icon:'🔷',cost:40,blurb:'Geometry patterns on Geometry Turtle.',art:'pets/turtle_shell.svg'},
+  {id:'turtle_garden',petId:'turtle',name:'Garden Shell',icon:'🌿',cost:45,blurb:'Leafy shell for Geometry Turtle.',art:'pets/turtle_garden.svg'},
+  {id:'otter_splash',petId:'otter',name:'Splash Bandana',icon:'💙',cost:40,blurb:'Splashy scarf for Probability Otter.',art:'pets/otter_splash.svg'},
+  {id:'otter_lucky',petId:'otter',name:'Lucky Beads',icon:'🍀',cost:45,blurb:'Lucky bead collar for Probability Otter.',art:'pets/otter_lucky.svg'}
 ];
 
 export function buildingById(id){return REALM_BUILDINGS.find(b=>b.id===id)||null}
 export function petById(id){return REALM_PETS.find(p=>p.id===id)||null}
 export function skinById(id){return REALM_PET_SKINS.find(s=>s.id===id)||null}
+
+/** Absolute URL for a catalog `art` path under assets/realm/. */
+export function entryArtUrl(entry){
+  if(!entry?.art)return null;
+  return new URL('../assets/realm/'+entry.art,import.meta.url).href;
+}
+
+/** Practice-corner view: active pet + last N owned buildings (owned only, no Free Preview ghosts). */
+export function companionStripView(state){
+  const realm=[...(state.realm||[])];
+  const overflow=Math.max(0,realm.length-COMPANION_BUILDING_LIMIT);
+  const buildings=realm.slice(-COMPANION_BUILDING_LIMIT).map(id=>buildingById(id)).filter(Boolean);
+  let pet=null;
+  const petId=state.activePet||(state.pets||[])[0]||null;
+  if(petId){
+    const base=petById(petId);
+    if(base){
+      const skin=(state.activePet===petId&&state.activePetSkin)?skinById(state.activePetSkin):null;
+      pet={
+        id:base.id,
+        name:skin?`${base.name} · ${skin.name}`:base.name,
+        icon:skin?`${base.icon}${skin.icon}`:base.icon,
+        art:skin?.art||base.art
+      };
+    }
+  }
+  return{visible:buildings.length>0||!!pet,buildings,overflow,pet};
+}
 
 export function canBuyBuilding(state,buildingId){
   const b=buildingById(buildingId);
@@ -173,12 +202,14 @@ export function realmStageView(state,preview=null){
   const pet=petId?petById(petId):null;
   const skin=skinId?skinById(skinId):null;
   const petIcon=skin?`${pet?.icon||''}${skin.icon}`:(pet?.icon||null);
+  const petArtEntry=skin||pet;
   return{
     buildings:buildings.map(id=>buildingById(id)).filter(Boolean),
     ghostBuilding,
     pet,
     skin,
     petIcon,
+    petArtEntry,
     previewLabel,
     isPreview:!!preview
   };

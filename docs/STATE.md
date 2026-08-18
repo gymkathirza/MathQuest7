@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.19.2`
-- Release label: `fix-open-ended-topic-span`
+- Version: `0.20.0`
+- Release label: `realm-isometric-companion`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
@@ -21,7 +21,8 @@ Files are grouped by category (as of `0.11.0`):
 - Web root (kept at repo root for the GitHub Pages URL and service-worker scope): `index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`.
 - `css/` — `app.css`.
 - `js/` — `app.js`, `curriculum.mjs`, `daily-session.mjs`, `practice-timer.mjs`, `mastery-session.mjs`, `learner-insights.mjs`, `coach-visuals.mjs`, `rewards.mjs` (modules reference web-root files via `new URL('../file', import.meta.url)`).
-- `docs/` — this file plus `MEMORY.md`, `VERSIONING.md`, `TEST_CREATION_BASELINE.md`, `SESSION_GENERATION_SPEC.md`, `session-generation-schema.json`, `README_V07.md`, `REGISTRATION_SETUP.md`, `TESTING.md`.
+- `docs/` — this file plus `MEMORY.md`, `VERSIONING.md`, `TEST_CREATION_BASELINE.md`, `SESSION_GENERATION_SPEC.md`, `session-generation-schema.json`, `README_V07.md`, `REGISTRATION_SETUP.md`, `TESTING.md`, and `docs/superpowers/` design/plan notes.
+- `assets/realm/` — license-safe isometric SVG art for My Realm buildings/pets/skins (see `assets/realm/LICENSE.md`).
 - `tests/` — `smoke.mjs`. `.github/` — CI/deploy. `.cursor/` — Cloud Agent environment and always-on rules.
 
 The web app is deployed live via GitHub Pages at `https://gymkathirza.github.io/MathQuest7/`.
@@ -41,7 +42,7 @@ Current design includes:
 - itemized error-analysis summary after each benchmark set
 - roadmap navigation: any unlocked day (current or previously completed) is clickable to revisit/replay; locked future days stay gated. The "Start / Continue Today" button shows the target day number, e.g. "Start / Continue Today (Day 2)"
 - header badges: hero title, XP, coins, streak, active daily practice-minutes timer, and app version, each with a hover/focus help tooltip. The version badge fetches `version.json` network-first through the service worker so it always reflects the deployed version
-- **My Realm** cosmetic shop with clear tabs (**Buildings**, **Pet Store**, **Pet Skins**): free **Preview** always works (even with 0 coins) and shows the item in the main realm window for ~3.5s; 12 buildings, 5 pets, pet skins. Coins from correct answers (streak multiplies coins only), day clears (+100), and completed healthy breaks (+25). Rewards never unlock lessons or skip mastery
+- **My Realm** cosmetic shop with clear tabs (**Buildings**, **Pet Store**, **Pet Skins**): free **Preview** always works (even with 0 coins) and shows the item in the main realm window for ~3.5s; 12 buildings, 5 pets, pet skins. Shop/stage/practice use **isometric SVG art** (project-generated, vendored under `assets/realm/`). Owned active pet + recent buildings appear in a non-interactive **corner companion strip** during Learn/practice. Coins from correct answers (streak multiplies coins only), day clears (+100), and completed healthy breaks (+25). Rewards never unlock lessons or skip mastery
 - Parent / Admin trophies row plus coins stat alongside XP/accuracy
 - Parent / Admin portal (renamed from "Parent"), PIN-gated: overall progress, Strengths, Improvements (GIF-style step previews, read-only), Improvement plan (read-only; no Practice buttons), Mastery review, miss-based focus areas, week mastery, syllabus coverage gap notes, Exit Ticket volume, mastery-replay target, open-ended focus mode (auto/blend/manual), and day pin checkboxes. Export/change PIN/reset/clear retained
 - student home coaching plan card: positive praise + celebration animations for strengths; improvement plan with GIF step previews; **Practice Day N with GIF steps** (student-only) opens a granular boost walkthrough then practice; scores/mastery update and strengths/improvements recalibrate after each save
