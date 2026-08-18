@@ -39,6 +39,8 @@ The experience should:
 - XP is permanent progress flavor (titles); **coins** are spendable cosmetic currency for **My Realm** buildings, pets, and pet skins; **streak** multiplies coin payouts only (×1.5 at 5+, ×2 at 10+) and never replaces the 80% + exit-ticket unlock gate
 - Coins never unlock lessons, skip exit tickets, or buy answers — rewards celebrate practice (correct answers, day clears, healthy breaks)
 - Day-clear coin credit is tracked in local `state.dayClearCoinClaimed` (per topic id). Live clears mark the day; a one-time home claim can grant **coins only** for already-cleared days missing that mark (idempotent; never double-pays)
+- My Realm visuals use **project-owned isometric SVG art** under `assets/realm/` (or clearly redistributable CC0/CC-BY packs documented in `assets/realm/LICENSE.md`); no ambiguous marketplace/personal-use assets
+- Owned active pet and recent buildings appear in a non-interactive **practice corner companion strip**; Free Preview ghosts stay on the home realm stage only
 - My Realm store uses **Buildings / Pet Store / Pet Skins** tabs; **Free Preview** is always available (even with 0 coins) and never spends currency
 - after the 20-day spine is cleared, unlock an **Open-Ended Mastery Quest** that recaps all NC.7 domains and offers endless mixed advanced practice (harder 2·4·4 tier mix) so learning continues without boredom
 - Parent/Admin may set a separate **mastery replay target** (10/20/40/unlimited) controlling how much practice is expected when revisiting completed days or the open-ended quest; this does not replace the first-time Exit Ticket practice target

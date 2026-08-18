@@ -1,5 +1,5 @@
 import assert from 'node:assert/strict';
-import {readFileSync} from 'node:fs';
+import {readFileSync,existsSync} from 'node:fs';
 import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
 import {TOPICS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,canTakeExit,updateMastery} from '../js/curriculum.mjs';
@@ -8,10 +8,9 @@ import {IDLE_PAUSE_MS,todayKey,yesterdayKey,ensurePracticeDay,elapsedPracticeMin
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,allTopicsCleared,openEndedUnlocked,MASTERY_LEVEL_COUNTS,OPEN_ENDED_ID} from '../js/mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,SYLLABUS_GAPS} from '../js/learner-insights.mjs';
 import {boostStepsForTopic,boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from '../js/coach-visuals.mjs';
-import {streakCoinMultiplier,coinsForCorrect,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,buyPet,buyPetSkin,realmStageView,REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,computeTrophies,heroTitle,XP_PER_CORRECT,COINS_DAY_CLEAR,COINS_BREAK_BONUS,REALM_PREVIEW_MS,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,eligibleDayClearCoinIds} from '../js/rewards.mjs';
-
+import {streakCoinMultiplier,coinsForCorrect,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,buyPet,buyPetSkin,realmStageView,companionStripView,COMPANION_BUILDING_LIMIT,REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,computeTrophies,heroTitle,XP_PER_CORRECT,COINS_DAY_CLEAR,COINS_BREAK_BONUS,REALM_PREVIEW_MS,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,eligibleDayClearCoinIds} from '../js/rewards.mjs';
 const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
-const appSource=readFileSync(join(ROOT,'js','app.js'),'utf8');
+const repoRoot=ROOT;const appSource=readFileSync(join(ROOT,'js','app.js'),'utf8');
 assert.ok(/from ['"]\.\/daily-session\.mjs['"]/.test(appSource),'UI (app.js) must import the canonical daily-session benchmark module');
 assert.ok(/from ['"]\.\/practice-timer\.mjs['"]/.test(appSource),'UI (app.js) must import the active practice timer module');
 assert.ok(/from ['"]\.\/mastery-session\.mjs['"]/.test(appSource),'UI (app.js) must import mastery / open-ended session helpers');
@@ -42,17 +41,20 @@ assert.ok(indexSource.includes('masteryTimeLog'),'Parent panel must show mastery
 assert.ok(indexSource.includes('masteryTimePill'),'Student header must show mastery yesterday/today time');
 assert.ok(/resetMasterySession|flushMasterySegment|masteryPracticeByDay/.test(appSource),'Open-ended mastery must track per-day active practice time');
 assert.ok(/from ['"]\.\/rewards\.mjs['"]/.test(appSource),'UI must import rewards helpers');
-assert.ok(/previewRealmItem|buyPet|realmTab|Pet Store|Free Preview/.test(appSource),'UI must expose Pet Store tab and free previews');
+assert.ok(/previewRealmItem|buyPet|realmTab|Pet Store|Free Preview|renderCompanionStrip/.test(appSource),'UI must expose Pet Store tab, free previews, and practice companion strip');
 assert.ok(swSource.includes('rewards.mjs'),'Service worker must cache rewards.mjs');
+assert.ok(swSource.includes('assets/realm/'),'Service worker must cache realm art assets');
 assert.ok(indexSource.includes('realmShop'),'Home must include My Realm shop');
 assert.ok(indexSource.includes('realmStage'),'Home must include My Realm main stage for previews');
+assert.ok(indexSource.includes('realmCompanion'),'Learn/practice must include companion strip mount');
 assert.ok(indexSource.includes('Pet Store'),'My Realm copy must mention Pet Store');
 assert.ok(indexSource.includes('trophies'),'Parent panel must show trophies');
 assert.ok(indexSource.includes('id="coins"'),'Header must show coins');
 assert.ok(indexSource.includes('dayClearCoinClaim'),'Home must include one-time day-clear coin claim banner');
 assert.ok(/claimDayClearCoinBackfill|dayClearCoinClaimed|renderDayClearCoinClaim/.test(appSource),'UI must wire day-clear coin backfill claim');
 assert.ok(/awardDayClearRewards\s*\(\s*S\s*,\s*id\s*\)/.test(appSource),'finishExit must mark cleared day as coin-credited');
-assert.equal(REALM_PREVIEW_MS,3500);
+assert.ok(existsSync(join(repoRoot,'assets/realm/LICENSE.md')),'Realm art must ship with LICENSE provenance');assert.equal(REALM_PREVIEW_MS,3500);
+assert.equal(COMPANION_BUILDING_LIMIT,4);
 assert.equal(streakCoinMultiplier(1),1);
 assert.equal(streakCoinMultiplier(5),1.5);
 assert.equal(streakCoinMultiplier(10),2);
@@ -96,6 +98,18 @@ assert.equal(dayClearCoinBackfillPreview(backfill).days,0,'Live day-clear award 
 assert.equal(REALM_BUILDINGS.length,12);
 assert.equal(REALM_PETS.length,5);
 assert.ok(REALM_PET_SKINS.length>=8);
+for(const b of REALM_BUILDINGS){
+  assert.ok(b.art,`Building ${b.id} needs art path`);
+  assert.ok(existsSync(join(repoRoot,'assets/realm',b.art)),`Missing art file for ${b.id}`);
+}
+for(const p of REALM_PETS){
+  assert.ok(p.art,`Pet ${p.id} needs art path`);
+  assert.ok(existsSync(join(repoRoot,'assets/realm',p.art)),`Missing art file for ${p.id}`);
+}
+for(const sk of REALM_PET_SKINS){
+  assert.ok(sk.art,`Skin ${sk.id} needs art path`);
+  assert.ok(existsSync(join(repoRoot,'assets/realm',sk.art)),`Missing art file for ${sk.id}`);
+}
 const shop={coins:50,realm:[]};
 assert.equal(buyBuilding(shop,'signpost').ok,true);
 assert.deepEqual(shop.realm,['signpost']);
@@ -111,7 +125,16 @@ assert.equal(buyPetSkin(shop,'fox_ember').ok,true);
 assert.equal(shop.activePetSkin,'fox_ember');
 const petPreview=realmStageView(shop,{type:'skin',id:'fox_frost'});
 assert.ok(petPreview.petIcon.includes('🦊'));
+assert.ok(petPreview.petArtEntry?.art?.includes('fox_frost'));
 assert.ok(petPreview.isPreview);
+const stripEmpty=companionStripView({realm:[],pets:[],activePet:null});
+assert.equal(stripEmpty.visible,false);
+shop.realm=['signpost','banner','bridge','arena','garden'];
+const strip=companionStripView(shop);
+assert.equal(strip.visible,true);
+assert.equal(strip.buildings.length,4);
+assert.equal(strip.overflow,1);
+assert.equal(strip.pet.art,'pets/fox_ember.svg');
 assert.ok(computeTrophies({cleared:{ns_signs:true},best:5,breaksCompleted:1,realm:['signpost'],pets:['fox'],petSkins:['fox_ember'],coins:50,xp:100}).some(t=>t.id==='pet1'));
 assert.ok(computeTrophies({cleared:{ns_signs:true},best:5,breaksCompleted:1,realm:['signpost'],coins:50,xp:100}).length>=3);
 assert.equal(heroTitle(0),'New Adventurer');

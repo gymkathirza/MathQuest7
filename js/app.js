@@ -4,15 +4,36 @@ import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shoul
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
-import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';
-const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
+import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
 function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0}}
 let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,previewTimer=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
 function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
-function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome()){renderRealm();renderDayClearCoinClaim()}}
-function renderTop(){
+function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome())renderRealm();renderCompanionStrip()}
+function artMarkup(entry){
+  const src=entryArtUrl(entry);
+  if(!src)return`<span class="realmEmoji">${entry?.icon||''}</span>`;
+  return`<img class="realmArt" src="${src}" alt="" data-fallback="${esc(entry?.icon||'')}">`;
+}
+function bindArtFallbacks(root){
+  if(!root)return;
+  root.querySelectorAll('img.realmArt').forEach(img=>{
+    img.onerror=()=>{const s=document.createElement('span');s.className='realmEmoji';s.textContent=img.dataset.fallback||'';img.replaceWith(s)};
+  });
+}
+function renderCompanionStrip(){
+  const el=$('realmCompanion');if(!el)return;
+  const onLearn=!$('learn').classList.contains('hidden');
+  const view=companionStripView(S);
+  if(!onLearn||!view.visible){el.classList.add('hidden');el.innerHTML='';return}
+  el.classList.remove('hidden');
+  const pet=view.pet?`<div class="companionPet" title="${esc(view.pet.name)}">${artMarkup(view.pet)}</div>`:'';
+  const builds=view.buildings.map(b=>`<div class="companionPlot" title="${esc(b.name)}">${artMarkup(b)}</div>`).join('');
+  const more=view.overflow?`<div class="companionMore">+${view.overflow}</div>`:'';
+  el.innerHTML=`<div class="companionInner">${pet}${builds}${more}</div>`;
+  bindArtFallbacks(el);
+}function renderTop(){
   $('xp').textContent=S.xp;$('streak').textContent=S.streak;
   const coinsEl=$('coins');if(coinsEl)coinsEl.textContent=S.coins;
   const titleEl=$('heroTitle');if(titleEl)titleEl.textContent=heroTitle(S.xp);
@@ -35,9 +56,9 @@ function go(id){
   if(id==='parent'||(id==='home'&&sessionMode==='open'))pausePractice();
   if(id==='home'){renderMap();renderDayClearCoinClaim()}
   if(id!=='parent'){noteActivity();resumePractice()}
+  renderCompanionStrip();
 }
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.19.3'}}
-function currentInsights(){return analyzeLearner(S)}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.20.1'}}function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
 function goalLabel(n){return n===0?'∞':String(n)}
@@ -103,13 +124,13 @@ function renderRealm(){
     panel=`<h3 class="realmPanelTitle">🏰 Building shop</h3><p class="small">Preview any building in the window above, then Build when you can afford it.</p><div class="realmGrid">`+REALM_BUILDINGS.map(b=>{
       const have=ownedB.has(b.id),check=canBuyBuilding(S,b.id),need=Math.max(0,b.cost-coins);
       const buy=have?`<span class="tag">Built ✓</span>`:`<button type="button" class="btn ${check.ok?'':'alt'}" data-buy-building="${b.id}" ${check.ok?'':'disabled'}>${check.ok?`Build · ${b.cost} 🪙`:`Need ${need} more 🪙`}</button>`;
-      return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${b.icon}</div><b>${esc(b.name)}</b><span class="small">${esc(b.blurb)}</span><span class="small realmPrice">Price: ${b.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-building="${b.id}">👁 Free Preview</button>${buy}</div></div>`;
+      return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${artMarkup(b)}</div><b>${esc(b.name)}</b><span class="small">${esc(b.blurb)}</span><span class="small realmPrice">Price: ${b.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-building="${b.id}">👁 Free Preview</button>${buy}</div></div>`;
     }).join('')+`</div>`;
   }else if(realmTab==='pets'){
-    panel=`<h3 class="realmPanelTitle">🐾 Pet Store</h3><p class="small">Adopt a companion with coins. Use <b>Free Preview</b> first (no coins needed). After adopting, tap <b>Make active</b> so they appear in your realm window.</p><div class="realmGrid">`+REALM_PETS.map(p=>{
+    panel=`<h3 class="realmPanelTitle">🐾 Pet Store</h3><p class="small">Adopt a companion with coins. Use <b>Free Preview</b> first (no coins needed). After adopting, tap <b>Make active</b> so they appear in your realm window and practice corner.</p><div class="realmGrid">`+REALM_PETS.map(p=>{
       const have=ownedP.has(p.id),check=canBuyPet(S,p.id),active=S.activePet===p.id,need=Math.max(0,p.cost-coins);
       const buy=have?`<button type="button" class="btn alt" data-equip-pet="${p.id}">${active?'Active in window ✓':'Make active in window'}</button>`:`<button type="button" class="btn ${check.ok?'':'alt'}" data-buy-pet="${p.id}" ${check.ok?'':'disabled'}>${check.ok?`Adopt with ${p.cost} 🪙`:`Need ${need} more 🪙 to adopt`}</button>`;
-      return`<div class="realmCard ${have?'owned':''} ${active?'activePet':''}"><div class="realmIcon">${p.icon}</div><b>${esc(p.name)}</b><span class="small">${esc(p.blurb)}</span><span class="small realmPrice">Adopt price: ${p.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-pet="${p.id}">👁 Free Preview</button>${buy}</div></div>`;
+      return`<div class="realmCard ${have?'owned':''} ${active?'activePet':''}"><div class="realmIcon">${artMarkup(p)}</div><b>${esc(p.name)}</b><span class="small">${esc(p.blurb)}</span><span class="small realmPrice">Adopt price: ${p.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-pet="${p.id}">👁 Free Preview</button>${buy}</div></div>`;
     }).join('')+`</div>`;
   }else{
     panel=`<h3 class="realmPanelTitle">✨ Pet skins shop</h3><p class="small">Skins dress up a pet you already own. <b>Free Preview</b> works anytime (even before you own the pet or have enough coins). Buy unlocks the skin; Wear puts it on your active pet.</p><div class="realmGrid">`+REALM_PET_SKINS.map(sk=>{
@@ -121,10 +142,11 @@ function renderRealm(){
         else buyLabel=`Need ${need} more 🪙`;
       }
       const buy=have?`<button type="button" class="btn alt" data-equip-skin="${sk.id}" ${S.activePet===sk.petId?'':'disabled'}>${equipped?'Wearing ✓':(S.activePet===sk.petId?'Wear on active pet':'Activate pet first')}</button>`:`<button type="button" class="btn ${check.ok?'':'alt'}" data-buy-skin="${sk.id}" ${check.ok?'':'disabled'}>${buyLabel}</button>`;
-      return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${pet?.icon||''}${sk.icon}</div><b>${esc(sk.name)}</b><span class="small">${esc(sk.blurb)} · for <b>${esc(pet?.name||sk.petId)}</b></span><span class="small realmPrice">Skin price: ${sk.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-skin="${sk.id}">👁 Free Preview</button>${buy}</div></div>`;
+      return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${artMarkup(sk)}</div><b>${esc(sk.name)}</b><span class="small">${esc(sk.blurb)} · for <b>${esc(pet?.name||sk.petId)}</b></span><span class="small realmPrice">Skin price: ${sk.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-skin="${sk.id}">👁 Free Preview</button>${buy}</div></div>`;
     }).join('')+`</div>`;
   }
   box.innerHTML=`${tip}${tabs}<div class="realmPanel">${panel}</div>`;
+  bindArtFallbacks(box);
   box.querySelectorAll('[data-realm-tab]').forEach(b=>b.onclick=()=>{realmTab=b.dataset.realmTab;renderRealm()});
   box.querySelectorAll('[data-preview-building]').forEach(b=>b.onclick=()=>previewRealmItem({type:'building',id:b.dataset.previewBuilding}));
   box.querySelectorAll('[data-preview-pet]').forEach(b=>b.onclick=()=>previewRealmItem({type:'pet',id:b.dataset.previewPet}));
@@ -138,11 +160,12 @@ function renderRealm(){
 function renderRealmStage(){
   const stage=$('realmStage');if(!stage)return;
   const view=realmStageView(S,realmPreview);
-  const plots=view.buildings.map(b=>`<div class="realmPlot" title="${esc(b.name)}"><span>${b.icon}</span><small>${esc(b.name)}</small></div>`).join('');
-  const ghost=view.ghostBuilding?`<div class="realmPlot ghost pulse" title="Preview"><span>${view.ghostBuilding.icon}</span><small>Free preview</small></div>`:'';
-  const pet=view.petIcon?`<div class="realmPet ${view.isPreview&&(realmPreview?.type==='pet'||realmPreview?.type==='skin')?'ghost pulse':''}" title="${esc(view.pet?.name||'Pet')}"><span>${view.petIcon}</span><small>${esc(view.skin?view.skin.name:view.pet?.name||'')}</small></div>`:`<div class="realmPet empty"><small>No pet yet — open Pet Store</small></div>`;
+  const plots=view.buildings.map(b=>`<div class="realmPlot" title="${esc(b.name)}">${artMarkup(b)}<small>${esc(b.name)}</small></div>`).join('');
+  const ghost=view.ghostBuilding?`<div class="realmPlot ghost pulse" title="Preview">${artMarkup(view.ghostBuilding)}<small>Free preview</small></div>`:'';
+  const pet=view.petArtEntry?`<div class="realmPet ${view.isPreview&&(realmPreview?.type==='pet'||realmPreview?.type==='skin')?'ghost pulse':''}" title="${esc(view.pet?.name||'Pet')}">${artMarkup(view.petArtEntry)}<small>${esc(view.skin?view.skin.name:view.pet?.name||'')}</small></div>`:`<div class="realmPet empty"><small>No pet yet — open Pet Store</small></div>`;
   const banner=view.previewLabel?`<div class="realmPreviewBanner">${esc(view.previewLabel)} · free (no coins) · ${Math.round(REALM_PREVIEW_MS/1000)}s</div>`:'';
   stage.innerHTML=`${banner}<div class="realmSky"><div class="realmGround">${plots}${ghost}${pet}</div></div>`;
+  bindArtFallbacks(stage);
   if(view.isPreview)stage.classList.add('previewing');else stage.classList.remove('previewing');
 }
 function previewRealmItem(item){
@@ -209,6 +232,7 @@ function setPhase(p){
   for(const x of PHASES)$('p'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===p);
   if(sessionMode==='open'){$('topicName').textContent=`${OPEN_ENDED_ICON} ${OPEN_ENDED_TITLE}`;const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}
   else{$('topicName').textContent=`${sessionMode==='replay'?'♻️ Mastery · ':''}Day ${current+1}: ${TOPICS[current].title}`;$('masteryPill').textContent=`${S.mastery[TOPICS[current].id]}% mastery`}
+  renderCompanionStrip();
 }
 function button(label,fn,cls='btn'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=fn;return b}
 function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{$('feedback').innerHTML=a===w.a?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;$('feedback').append(button('Continue to today’s story →',showLearn))})}
