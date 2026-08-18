@@ -41,6 +41,7 @@ Rewards are cosmetic only — they never unlock lessons or skip Exit Tickets.
 | Correct answer | +10 coins (+20 XP). Streak 5–9 → ×1.5 coins; streak 10+ → ×2 coins |
 | Day cleared | +100 coins (+50 XP) |
 | Healthy break finished | +25 coins |
+| One-time claim (existing cleared days) | +100 coins × eligible days (coins only; home banner when available) |
 
 ### My Realm store (tabs)
 
@@ -73,7 +74,7 @@ On the home screen, open **My Realm**. You will see a preview window, then three
 7. Use **Hint** whenever help is needed.
 8. As mastery improves, the game increases the challenge level automatically.
 9. Reach the required mastery in one zone to unlock the next zone.
-10. Open **My Realm** → use tabs **Buildings / Pet Store / Pet Skins**. Use **Free Preview** anytime (even with 0 coins), then Adopt/Buy when you can afford it.
+10. Open **My Realm** → use tabs **Buildings / Pet Store / Pet Skins**. Use **Free Preview** anytime (even with 0 coins), then Adopt/Buy when you can afford it. If a **Claim missed day-clear coins** banner appears, tap it once to collect coins for days you already cleared.
 11. Open **Parent / Admin** to review learning progress, coins, and trophies.
 
 The game is intentionally mastery-oriented. Speed is not required, and mistakes are used as learning signals rather than as a reason to heavily penalize the learner.

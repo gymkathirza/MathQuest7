@@ -1,4 +1,4 @@
-const CACHE='mathquest7-v0.19.2';
+const CACHE='mathquest7-v0.19.3';
 const ASSETS=['./','./index.html','./css/app.css','./js/app.js','./js/curriculum.mjs','./js/daily-session.mjs','./js/practice-timer.mjs','./js/mastery-session.mjs','./js/learner-insights.mjs','./js/coach-visuals.mjs','./js/rewards.mjs','./manifest.webmanifest','./icon.svg','./version.json','./PRIVACY.md'];
 self.addEventListener('install',e=>{self.skipWaiting();e.waitUntil(caches.open(CACHE).then(c=>c.addAll(ASSETS)))});
 self.addEventListener('activate',e=>e.waitUntil(Promise.all([caches.keys().then(keys=>Promise.all(keys.filter(k=>k.startsWith('mathquest7-')&&k!==CACHE).map(k=>caches.delete(k)))),self.clients.claim()])));

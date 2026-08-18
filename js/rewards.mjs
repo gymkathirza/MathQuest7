@@ -230,9 +230,40 @@ export function awardCorrectRewards(state){
   return{xp:XP_PER_CORRECT,coins,mult:streakCoinMultiplier(state.streak),streak:state.streak};
 }
 
-export function awardDayClearRewards(state){
+/** Mark a day as already paid the day-clear coin award (live clear or backfill). */
+export function markDayClearCoinsClaimed(state,topicId){
+  if(!topicId)return;
+  if(!state.dayClearCoinClaimed||typeof state.dayClearCoinClaimed!=='object')state.dayClearCoinClaimed={};
+  state.dayClearCoinClaimed[topicId]=true;
+}
+
+/** Cleared days that have not yet been credited day-clear coins (migration + anti-double-pay). */
+export function eligibleDayClearCoinIds(state){
+  const claimed=state.dayClearCoinClaimed&&typeof state.dayClearCoinClaimed==='object'?state.dayClearCoinClaimed:{};
+  const cleared=state.cleared||{};
+  return Object.keys(cleared).filter(id=>cleared[id]&&!claimed[id]);
+}
+
+export function dayClearCoinBackfillPreview(state){
+  const ids=eligibleDayClearCoinIds(state);
+  return{days:ids.length,coins:ids.length*COINS_DAY_CLEAR,ids};
+}
+
+/** One-time coins-only grant for already-cleared days missing day-clear coin credit. Idempotent. */
+export function claimDayClearCoinBackfill(state){
+  const preview=dayClearCoinBackfillPreview(state);
+  if(preview.days<=0)return{ok:false,days:0,coins:0,reason:'Nothing to claim'};
+  state.coins=(Number(state.coins)||0)+preview.coins;
+  if(!state.dayClearCoinClaimed||typeof state.dayClearCoinClaimed!=='object')state.dayClearCoinClaimed={};
+  for(const id of preview.ids)state.dayClearCoinClaimed[id]=true;
+  return{ok:true,days:preview.days,coins:preview.coins};
+}
+
+/** Live day clear: XP + coins. Pass topicId so the day is marked coin-credited (not reclaimable via backfill). */
+export function awardDayClearRewards(state,topicId){
   state.xp=(Number(state.xp)||0)+XP_DAY_CLEAR;
   state.coins=(Number(state.coins)||0)+COINS_DAY_CLEAR;
+  markDayClearCoinsClaimed(state,topicId);
   return{xp:XP_DAY_CLEAR,coins:COINS_DAY_CLEAR};
 }
 
