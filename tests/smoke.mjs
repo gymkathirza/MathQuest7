@@ -5,11 +5,14 @@ import {dirname,join} from 'node:path';
 import {TOPICS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,canTakeExit,updateMastery} from '../js/curriculum.mjs';
 import {generateDailyBenchmark,CORE_DAILY_COUNT,LEVEL_COUNTS,NC_LOCATIONS} from '../js/daily-session.mjs';
 import {IDLE_PAUSE_MS,todayKey,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,activeElapsedMs} from '../js/practice-timer.mjs';
+import {generateMasteryBenchmark,generateOpenEndedBenchmark,allTopicsCleared,openEndedUnlocked,MASTERY_LEVEL_COUNTS,OPEN_ENDED_ID} from '../js/mastery-session.mjs';
 
 const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
 const appSource=readFileSync(join(ROOT,'js','app.js'),'utf8');
 assert.ok(/from ['"]\.\/daily-session\.mjs['"]/.test(appSource),'UI (app.js) must import the canonical daily-session benchmark module');
 assert.ok(/from ['"]\.\/practice-timer\.mjs['"]/.test(appSource),'UI (app.js) must import the active practice timer module');
+assert.ok(/from ['"]\.\/mastery-session\.mjs['"]/.test(appSource),'UI (app.js) must import mastery / open-ended session helpers');
+assert.ok(/masteryReplayTarget/.test(appSource),'UI must honor Parent/Admin mastery replay volume');
 assert.ok(/generateDailyBenchmark\s*\(/.test(appSource),'UI (app.js) must call generateDailyBenchmark so practice uses the 3/4/3 benchmark');
 assert.ok(/visibilitychange/.test(appSource),'UI must pause practice time when the tab is hidden');
 assert.ok(/IDLE_PAUSE_MS/.test(appSource),'UI must use the idle-pause threshold for away time');
@@ -17,6 +20,9 @@ for(const label of ['Level 1','Level 2','Level 3'])assert.ok(appSource.includes(
 assert.ok(/No calculator/i.test(appSource),'UI must show the no-calculator benchmark instruction');
 const swSource=readFileSync(join(ROOT,'sw.js'),'utf8');
 assert.ok(swSource.includes('practice-timer.mjs'),'Service worker must cache practice-timer.mjs');
+assert.ok(swSource.includes('mastery-session.mjs'),'Service worker must cache mastery-session.mjs');
+const indexSource=readFileSync(join(ROOT,'index.html'),'utf8');
+assert.ok(indexSource.includes('masteryReplayTarget'),'Parent panel must expose mastery replay target control');
 
 assert.equal(IDLE_PAUSE_MS,5*60*1000,'Idle pause must be 5 minutes');
 assert.match(todayKey(new Date('2026-08-12T15:00:00')),/^\d{4}-\d{2}-\d{2}$/);
@@ -54,6 +60,39 @@ function validateProblem(p,context){
   assert.equal(new Set(p.choices.map(String)).size,4,`Choices must be unique ${context}`);
   assert.ok(p.choices.map(String).includes(String(p.a)),`Correct answer absent from choices ${context}`);
 }
+
+assert.deepEqual(MASTERY_LEVEL_COUNTS,{standard:2,complex:4,word:4},'Mastery/open-ended mix must be advanced 2/4/4');
+for(const t of TOPICS){
+  for(let i=0;i<20;i++){
+    const set=generateMasteryBenchmark(t.id);
+    assert.equal(set.length,10,`Mastery benchmark length ${t.id}`);
+    assert.equal(set.filter(x=>x.level==='standard').length,2,`Mastery standard count ${t.id}`);
+    assert.equal(set.filter(x=>x.level==='complex').length,4,`Mastery complex count ${t.id}`);
+    assert.equal(set.filter(x=>x.level==='word').length,4,`Mastery word count ${t.id}`);
+    set.forEach((p,j)=>validateProblem(p,`${t.id}/mastery/${j+1}`));
+    for(const p of set.filter(x=>x.level==='word')){
+      assert.ok(p.location&&NC_LOCATIONS.includes(p.location),`Mastery word needs NC location ${t.id}`);
+    }
+  }
+}
+for(let i=0;i<40;i++){
+  const set=generateOpenEndedBenchmark();
+  assert.equal(set.length,10,'Open-ended set length');
+  assert.equal(set.filter(x=>x.level==='standard').length,2);
+  assert.equal(set.filter(x=>x.level==='complex').length,4);
+  assert.equal(set.filter(x=>x.level==='word').length,4);
+  const topics=new Set(set.map(x=>x.topicId));
+  assert.ok(topics.size>=5,`Open-ended set should span multiple days (got ${topics.size})`);
+  set.forEach((p,j)=>validateProblem(p,`open/${i}/${j+1}`));
+}
+const locked={mastery:{},cleared:{},attempts:{}};
+for(const t of TOPICS){locked.mastery[t.id]=0;locked.cleared[t.id]=false;locked.attempts[t.id]={n:0,c:0}}
+assert.equal(openEndedUnlocked(locked),false);
+assert.equal(allTopicsCleared(locked),false);
+for(const t of TOPICS){locked.mastery[t.id]=80;locked.cleared[t.id]=true}
+assert.equal(allTopicsCleared(locked),true);
+assert.equal(openEndedUnlocked(locked),true);
+assert.equal(OPEN_ENDED_ID,'open_mastery');
 
 for(const t of TOPICS){
   for(let i=0;i<100;i++)validateProblem(generateProblem(t.id),`${t.id}/base`);
@@ -94,4 +133,4 @@ assert.ok(m>=80);
 m=updateMastery(m,false);
 assert.ok(m<100&&m>=0);
 
-console.log('PASS: 20 topics; 2,000 base questions; 1,000 daily benchmark sets; exact 3/4/3 tiers; NC contexts; KCC; 80%+exit gating; mastery bounds; UI wired to canonical benchmark; active practice timer day/idle/pause rules');
+console.log('PASS: 20 topics; 2,000 base questions; 1,000 daily benchmark sets; exact 3/4/3 tiers; NC contexts; KCC; 80%+exit gating; mastery bounds; mastery replay 2/4/4; open-ended unlock; active practice timer');

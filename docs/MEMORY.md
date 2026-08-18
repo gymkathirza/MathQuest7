@@ -35,6 +35,8 @@ The experience should:
 - build confidence through visible progression
 - support roughly 1-hour daily learning sessions with a midpoint break
 - track **active practice time of the day** (not wall-clock): start when the student opens the app for the day; pause during healthy-break overlays, while the browser tab is hidden/minimized, after 5 minutes without interaction (away), and while Parent / Admin is open; reset on each local calendar day
+- after the 20-day spine is cleared, unlock an **Open-Ended Mastery Quest** that recaps all NC.7 domains and offers endless mixed advanced practice (harder 2·4·4 tier mix) so learning continues without boredom
+- Parent/Admin may set a separate **mastery replay target** (10/20/40/unlimited) controlling how much practice is expected when revisiting completed days or the open-ended quest; this does not replace the first-time Exit Ticket practice target
 
 ## Curriculum baseline
 
