@@ -176,7 +176,7 @@ for(const t of TOPICS){
     }
   }
 }
-for(let i=0;i<40;i++){
+for(let i=0;i<200;i++){
   const set=generateOpenEndedBenchmark();
   assert.equal(set.length,10,'Open-ended set length');
   assert.equal(set.filter(x=>x.level==='standard').length,2);

@@ -30,6 +30,8 @@ export function generateMasteryBenchmark(topicId){
 /**
  * Mixed open-ended set. Prefer focusTopicIds (improvements / parent pins); fill from full spine.
  * About 70% of items come from the focus pool when it is non-empty.
+ * Always spans at least min(5, pool size) distinct days when the available pool allows
+ * (avoids unlucky with-replacement draws collapsing to too few topics).
  */
 export function generateOpenEndedBenchmark(topicIds=TOPICS.map(t=>t.id),{focusTopicIds=null,focusShare=0.7}={}){
   const all=topicPool(topicIds);
@@ -47,7 +49,26 @@ export function generateOpenEndedBenchmark(topicIds=TOPICS.map(t=>t.id),{focusTo
     const topicId=pool[Math.floor(Math.random()*pool.length)];
     order.push({...generateTieredProblem(topicId,levels[i]),number:i+1,topicId,focused:focus.includes(topicId)});
   }
-  return order.sort(()=>Math.random()-.5).map((q,i)=>({...q,number:i+1}));
+  return diversifyOpenEndedTopics(order,all,focus).sort(()=>Math.random()-.5).map((q,i)=>({...q,number:i+1}));
+}
+
+/** Ensure open-ended sets cover enough distinct days when the topic pool is wide. */
+function diversifyOpenEndedTopics(order,all,focus){
+  const minSpan=Math.min(5,all.length,order.length);
+  const counts=new Map();
+  for(const q of order)counts.set(q.topicId,(counts.get(q.topicId)||0)+1);
+  if(counts.size>=minSpan)return order;
+  const unused=all.filter(id=>!counts.has(id));
+  const out=order.slice();
+  for(let i=0;i<out.length&&counts.size<minSpan&&unused.length;i++){
+    const cur=out[i].topicId;
+    if((counts.get(cur)||0)<=1)continue;
+    const neu=unused.pop();
+    counts.set(cur,counts.get(cur)-1);
+    counts.set(neu,1);
+    out[i]={...generateTieredProblem(neu,out[i].level||'standard'),number:out[i].number,topicId:neu,focused:focus.includes(neu)};
+  }
+  return out;
 }
 
 export function openEndedRecapHtml({focusTitles=[],planLines=[],modeLabel=''}={}){
