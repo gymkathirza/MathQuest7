@@ -53,11 +53,11 @@ On the home screen, open **My Realm**. You will see a preview window, then three
 2. **🐾 Pet Store** — adopt companions with coins (this is where you buy pets)  
 3. **✨ Pet Skins** — outfits for pets you already own  
 
-**👁 Free Preview** is on every card and **always works**, even at **0 coins** or when the Buy/Adopt button says you need more coins. Preview shows the item glowing in the main realm window for ~3.5 seconds and spends nothing.
+**👁 Free Preview** is on every card and **always works**, even at **0 coins** or when the Buy/Adopt button says you need more coins. Preview shows the item glowing in the **bottom-right companion strip** (same look as practice) for ~3.5 seconds — and also in the realm window — and spends nothing.
 
 **Buying a pet**
 1. Tap **🐾 Pet Store**
-2. Tap **Free Preview** to try the pet in the window
+2. Tap **Free Preview** to try the pet in the corner strip
 3. When you have enough coins, tap **Adopt with N 🪙**
 4. Tap **Make active in window** so they stay visible
 
@@ -77,7 +77,7 @@ On the home screen, open **My Realm**. You will see a preview window, then three
 8. As mastery improves, the game increases the challenge level automatically.
 9. Reach the required mastery in one zone to unlock the next zone.
 10. Open **My Realm** → use tabs **Buildings / Pet Store / Pet Skins**. Use **Free Preview** anytime (even with 0 coins), then Adopt/Buy when you can afford it. If a **Claim missed day-clear coins** banner appears, tap it once to collect coins for days you already cleared.
-11. Open **Parent / Admin** to review learning progress, coins, and trophies.
+11. Open **Parent / Admin** to review learning progress, coins, and trophies — and optionally **Award coins** (cosmetic only) to the student.
 
 The game is intentionally mastery-oriented. Speed is not required, and mistakes are used as learning signals rather than as a reason to heavily penalize the learner.
 

@@ -68,8 +68,8 @@ export function entryArtUrl(entry){
   return new URL('../assets/realm/'+entry.art,import.meta.url).href;
 }
 
-/** Practice-corner view: active pet + last N owned buildings (owned only, no Free Preview ghosts). */
-export function companionStripView(state){
+/** Corner companion strip: owned pet + last N buildings. Optional Free Preview overlays ghosts (Home). */
+export function companionStripView(state,preview=null){
   const realm=[...(state.realm||[])];
   const overflow=Math.max(0,realm.length-COMPANION_BUILDING_LIMIT);
   const buildings=realm.slice(-COMPANION_BUILDING_LIMIT).map(id=>buildingById(id)).filter(Boolean);
@@ -87,7 +87,50 @@ export function companionStripView(state){
       };
     }
   }
-  return{visible:buildings.length>0||!!pet,buildings,overflow,pet};
+  let ghostBuilding=null;
+  let petGhost=false;
+  let previewLabel=null;
+  if(preview?.type==='building'){
+    const b=buildingById(preview.id);
+    if(b&&!realm.includes(preview.id)){
+      ghostBuilding=b;
+      previewLabel=`Preview: ${b.name}`;
+    }
+  }else if(preview?.type==='pet'){
+    const p=petById(preview.id);
+    if(p){
+      pet={id:p.id,name:p.name,icon:p.icon,art:p.art};
+      petGhost=true;
+      previewLabel=`Preview: ${p.name}`;
+    }
+  }else if(preview?.type==='skin'){
+    const skin=skinById(preview.id);
+    const base=skin?petById(skin.petId):null;
+    if(skin&&base){
+      pet={id:base.id,name:`${base.name} · ${skin.name}`,icon:`${base.icon}${skin.icon}`,art:skin.art||base.art};
+      petGhost=true;
+      previewLabel=`Preview: ${skin.name}`;
+    }
+  }
+  return{
+    visible:buildings.length>0||!!pet||!!ghostBuilding,
+    buildings,
+    overflow,
+    pet,
+    ghostBuilding,
+    petGhost,
+    previewLabel,
+    isPreview:!!(ghostBuilding||petGhost)
+  };
+}
+
+/** Parent/Admin local coin grant (cosmetic only — never unlocks lessons). */
+export function awardParentCoins(state,amount){
+  const n=Math.floor(Number(amount));
+  if(!Number.isFinite(n)||n<=0)return{ok:false,reason:'Enter a positive coin amount',coins:0,total:Number(state.coins)||0};
+  if(n>10000)return{ok:false,reason:'Award at most 10,000 coins at once',coins:0,total:Number(state.coins)||0};
+  state.coins=(Number(state.coins)||0)+n;
+  return{ok:true,coins:n,total:state.coins};
 }
 
 export function canBuyBuilding(state,buildingId){

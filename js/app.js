@@ -4,7 +4,7 @@ import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shoul
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
-import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
+import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
 function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0}}
@@ -25,13 +25,19 @@ function bindArtFallbacks(root){
 function renderCompanionStrip(){
   const el=$('realmCompanion');if(!el)return;
   const onLearn=!$('learn').classList.contains('hidden');
-  const view=companionStripView(S);
-  if(!onLearn||!view.visible){el.classList.add('hidden');el.innerHTML='';return}
-  el.classList.remove('hidden');
-  const pet=view.pet?`<div class="companionPet" title="${esc(view.pet.name)}">${artMarkup(view.pet)}</div>`:'';
+  const home=onHome();
+  // Practice: owned only. Home: owned + optional Free Preview ghosts.
+  if(!onLearn&&!home){el.classList.add('hidden');el.innerHTML='';el.setAttribute('aria-hidden','true');return}
+  const view=companionStripView(S,home?realmPreview:null);
+  if(!view.visible){el.classList.add('hidden');el.innerHTML='';el.setAttribute('aria-hidden','true');return}
+  el.classList.remove('hidden');el.setAttribute('aria-hidden','false');
+  if(view.isPreview)el.classList.add('previewing');else el.classList.remove('previewing');
+  const pet=view.pet?`<div class="companionPet${view.petGhost?' ghost pulse':''}" title="${esc(view.pet.name)}">${artMarkup(view.pet)}</div>`:'';
   const builds=view.buildings.map(b=>`<div class="companionPlot" title="${esc(b.name)}">${artMarkup(b)}</div>`).join('');
+  const ghost=view.ghostBuilding?`<div class="companionPlot ghost pulse" title="Free preview">${artMarkup(view.ghostBuilding)}</div>`:'';
   const more=view.overflow?`<div class="companionMore">+${view.overflow}</div>`:'';
-  el.innerHTML=`<div class="companionInner">${pet}${builds}${more}</div>`;
+  const banner=view.previewLabel?`<div class="companionPreviewLabel">${esc(view.previewLabel)} · free</div>`:'';
+  el.innerHTML=`<div class="companionInner">${banner}${pet}${builds}${ghost}${more}</div>`;
   bindArtFallbacks(el);
 }function renderTop(){
   $('xp').textContent=S.xp;$('streak').textContent=S.streak;
@@ -52,13 +58,14 @@ function onParentDashboard(){return!$('parent').classList.contains('hidden')&&!$
 function refreshInsightPanels(){if(onHome()){renderStudentCoach();renderRealm();renderDayClearCoinClaim()}if(onParentDashboard())renderDashboard()}
 function syncPracticeDay(){if(ensurePracticeDay(S)){runningSince=runningSince!=null?Date.now():null;if(sessionMode==='open'&&masteryRunningSince!=null)masteryRunningSince=Date.now()}}
 function go(id){
+  if(id!=='home'&&realmPreview){clearTimeout(previewTimer);realmPreview=null;}
   for(const x of ['home','learn','parent'])$(x).classList.toggle('hidden',x!==id);
   if(id==='parent'||(id==='home'&&sessionMode==='open'))pausePractice();
   if(id==='home'){renderMap();renderDayClearCoinClaim()}
   if(id!=='parent'){noteActivity();resumePractice()}
   renderCompanionStrip();
 }
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.20.1'}}function currentInsights(){return analyzeLearner(S)}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.21.0'}}function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
 function goalLabel(n){return n===0?'∞':String(n)}
@@ -121,13 +128,13 @@ function renderRealm(){
   const tip=`<p class="small realmStoreTip"><b>You have ${coins} 🪙.</b> <span class="previewFree">👁 Preview is always free</span> — works even if you do not have enough coins. Buying spends coins; Preview never does.</p>`;
   let panel='';
   if(realmTab==='buildings'){
-    panel=`<h3 class="realmPanelTitle">🏰 Building shop</h3><p class="small">Preview any building in the window above, then Build when you can afford it.</p><div class="realmGrid">`+REALM_BUILDINGS.map(b=>{
+    panel=`<h3 class="realmPanelTitle">🏰 Building shop</h3><p class="small">Preview any building in the bottom-right companion strip (and realm window), then Build when you can afford it.</p><div class="realmGrid">`+REALM_BUILDINGS.map(b=>{
       const have=ownedB.has(b.id),check=canBuyBuilding(S,b.id),need=Math.max(0,b.cost-coins);
       const buy=have?`<span class="tag">Built ✓</span>`:`<button type="button" class="btn ${check.ok?'':'alt'}" data-buy-building="${b.id}" ${check.ok?'':'disabled'}>${check.ok?`Build · ${b.cost} 🪙`:`Need ${need} more 🪙`}</button>`;
       return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${artMarkup(b)}</div><b>${esc(b.name)}</b><span class="small">${esc(b.blurb)}</span><span class="small realmPrice">Price: ${b.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-building="${b.id}">👁 Free Preview</button>${buy}</div></div>`;
     }).join('')+`</div>`;
   }else if(realmTab==='pets'){
-    panel=`<h3 class="realmPanelTitle">🐾 Pet Store</h3><p class="small">Adopt a companion with coins. Use <b>Free Preview</b> first (no coins needed). After adopting, tap <b>Make active</b> so they appear in your realm window and practice corner.</p><div class="realmGrid">`+REALM_PETS.map(p=>{
+    panel=`<h3 class="realmPanelTitle">🐾 Pet Store</h3><p class="small">Adopt a companion with coins. Use <b>Free Preview</b> first (no coins needed) — it appears in the bottom-right strip like practice. After adopting, tap <b>Make active</b> so they stay in your realm and practice corner.</p><div class="realmGrid">`+REALM_PETS.map(p=>{
       const have=ownedP.has(p.id),check=canBuyPet(S,p.id),active=S.activePet===p.id,need=Math.max(0,p.cost-coins);
       const buy=have?`<button type="button" class="btn alt" data-equip-pet="${p.id}">${active?'Active in window ✓':'Make active in window'}</button>`:`<button type="button" class="btn ${check.ok?'':'alt'}" data-buy-pet="${p.id}" ${check.ok?'':'disabled'}>${check.ok?`Adopt with ${p.cost} 🪙`:`Need ${need} more 🪙 to adopt`}</button>`;
       return`<div class="realmCard ${have?'owned':''} ${active?'activePet':''}"><div class="realmIcon">${artMarkup(p)}</div><b>${esc(p.name)}</b><span class="small">${esc(p.blurb)}</span><span class="small realmPrice">Adopt price: ${p.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-pet="${p.id}">👁 Free Preview</button>${buy}</div></div>`;
@@ -172,11 +179,12 @@ function previewRealmItem(item){
   clearTimeout(previewTimer);
   realmPreview=item;
   renderRealmStage();
-  const stage=$('realmStage');
-  if(stage){stage.scrollIntoView({behavior:'smooth',block:'center'});}
+  renderCompanionStrip();
+  const strip=$('realmCompanion');
+  if(strip&&!strip.classList.contains('hidden'))strip.scrollIntoView({behavior:'smooth',block:'nearest'});
   const label=item.type==='pet'?'pet':item.type==='skin'?'pet skin':'building';
   showToast(`Free preview of this ${label} — no coins spent`,2800);
-  previewTimer=setTimeout(()=>{realmPreview=null;renderRealmStage()},REALM_PREVIEW_MS);
+  previewTimer=setTimeout(()=>{realmPreview=null;renderRealmStage();renderCompanionStrip()},REALM_PREVIEW_MS);
 }
 function nextDayIndex(){const i=TOPICS.findIndex((t,j)=>topicUnlocked(S,j)&&!S.cleared[t.id]);return i<0?TOPICS.length-1:i}
 function updateContinueLabel(){const allDone=allTopicsCleared(S);$('continueBtn').textContent=allDone?`▶ ${OPEN_ENDED_ICON} Open-Ended Mastery`:`▶ Start / Continue Today (Day ${nextDayIndex()+1})`}
@@ -344,14 +352,21 @@ function renderDashboard(){
   $('skills').innerHTML=WEEKS.map(w=>{const rows=TOPICS.map((t,i)=>({t,i})).filter(o=>o.t.week===w.week).map(({t,i})=>{const m=S.mastery[t.id],u=topicUnlocked(S,i),done=S.cleared[t.id]&&m>=PASS_MASTERY;return`<div class="skillRow ${done?'done':''} ${u?'':'locked'}"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="skillPct">${m}%${done?' ✓':''}</span><div class="bar"><i style="width:${m}%"></i></div></div>`}).join('');return`<div class="weekBlock"><h3>Week ${w.week}: ${esc(w.title)} <small>${esc(w.standard)}</small></h3>${rows}</div>`}).join('');
   renderFocusPins();
 }
+function applyParentCoinAward(amount){
+  const res=awardParentCoins(S,amount);
+  if(!res.ok){showToast(res.reason||'Could not award coins',4000);return}
+  save();
+  renderDashboard();
+  showToast(`Awarded ${res.coins} 🪙 · student now has ${res.total} coins (cosmetic only)`,4500);
+}
 function exportProgress(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mathquest7-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
 function changePin(){const p=prompt('New 4-digit parent PIN');if(/^\d{4}$/.test(p)){localStorage.mq7ParentPin=p;alert('PIN updated.')}else if(p!==null)alert('PIN must be exactly 4 digits.')}
 function resetLearning(){if(confirm('Reset learning progress but keep parent PIN and practice settings?')){const settings=S.settings;S=defaultState();S.settings=settings;save();location.reload()}}
 async function clearAll(){if(!confirm('Clear ALL MathQuest data from this browser/device? This cannot be undone.'))return;Object.keys(localStorage).filter(k=>k.toLowerCase().startsWith('mq7')||k.toLowerCase().includes('mathquest')).forEach(k=>localStorage.removeItem(k));if('caches'in window)for(const k of await caches.keys())if(k.toLowerCase().includes('mathquest'))await caches.delete(k);alert('All MathQuest local data cleared.');location.reload()}
 function esc(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
-$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{$('breakOverlay').classList.add('hidden');$('breakDone').classList.add('hidden');noteActivity();resumePractice()};
+$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;document.querySelectorAll('[data-award-coins]').forEach(b=>b.onclick=()=>applyParentCoinAward(b.dataset.awardCoins));const awardBtn=$('awardCoinsBtn');if(awardBtn)awardBtn.onclick=()=>applyParentCoinAward($('awardCoinsAmt')?.value);$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{$('breakOverlay').classList.add('hidden');$('breakDone').classList.add('hidden');noteActivity();resumePractice()};
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')pausePractice();else{noteActivity();resumePractice()}});
 window.addEventListener('pagehide',pausePractice);
 ['pointerdown','keydown','touchstart','mousemove','scroll'].forEach(ev=>document.addEventListener(ev,noteActivity,{passive:true}));
-renderTop();renderMap();renderRealm();renderDayClearCoinClaim();loadVersion();syncPracticeDay();noteActivity();resumePractice();startClock();
+renderTop();renderMap();renderRealm();renderCompanionStrip();renderDayClearCoinClaim();loadVersion();syncPracticeDay();noteActivity();resumePractice();startClock();
 if('serviceWorker'in navigator)navigator.serviceWorker.register(new URL('../sw.js',import.meta.url)).catch(()=>{});
