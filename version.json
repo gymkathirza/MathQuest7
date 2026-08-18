@@ -1,4 +1,4 @@
 {
-  "version": "0.19.1",
-  "release": "realm-store-clarity"
+  "version": "0.19.2",
+  "release": "fix-open-ended-topic-span"
 }
