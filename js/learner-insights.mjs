@@ -10,6 +10,7 @@ export const SYLLABUS_GAPS=Object.freeze([
 ]);
 
 export const FOCUS_MODES=Object.freeze(['auto','blend','manual']);
+const MIN_PRACTICE_FOR_INSIGHT=2;
 
 function accuracy(attempts){
   const n=Number(attempts?.n||0),c=Number(attempts?.c||0);
@@ -26,20 +27,40 @@ function topicScore(state,topic){
   const acc=accuracy(a);
   const misses=missCount(state.errorLog,topic.id);
   const cleared=state.cleared?.[topic.id]===true&&m>=PASS_MASTERY;
-  // Lower is weaker: weigh mastery, accuracy, and recent miss volume.
-  const accPenalty=acc==null?25:(1-acc)*40;
-  const missPenalty=Math.min(30,misses*3);
-  const clearBonus=cleared?8:0;
-  return{topic,mastery:m,attempts:a.n,correct:a.c,accuracy:acc,misses,cleared,weakness:Math.max(0,100-m)+accPenalty+missPenalty-clearBonus};
+  const practiced=a.n>0||misses>0||m>0;
+  const accPenalty=acc==null?0:(1-acc)*50;
+  const missPenalty=Math.min(40,misses*4);
+  const clearBonus=cleared?10:0;
+  const strengthScore=m+(acc==null?0:acc*30)+clearBonus-missPenalty*0.25;
+  const weakness=Math.max(0,100-m)+accPenalty+missPenalty+(cleared?0:12);
+  return{topic,mastery:m,attempts:a.n,correct:a.c,accuracy:acc,misses,cleared,practiced,strengthScore,weakness};
+}
+
+function isStrongRow(row){
+  if(!row.practiced||row.attempts<MIN_PRACTICE_FOR_INSIGHT)return false;
+  if(row.cleared&&row.mastery>=PASS_MASTERY&&(row.accuracy==null||row.accuracy>=0.7))return true;
+  return row.mastery>=72&&(row.accuracy==null||row.accuracy>=0.7)&&row.misses<=2;
+}
+
+function isWeakRow(row){
+  if(!row.practiced||row.attempts<1)return false;
+  if(row.misses>=2)return true;
+  if(row.accuracy!=null&&row.accuracy<0.7)return true;
+  if(row.mastery>0&&row.mastery<PASS_MASTERY)return true;
+  return row.attempts>=MIN_PRACTICE_FOR_INSIGHT&&row.mastery<60;
 }
 
 /** Build strengths, improvements, and a coaching plan from local progress. */
 export function analyzeLearner(state,{strengthCount=3,improveCount=4}={}){
   const rows=TOPICS.map(t=>topicScore(state,t));
-  const practiced=rows.filter(r=>r.attempts>0||r.mastery>0||r.misses>0);
-  const pool=practiced.length?practiced:rows;
-  const strengths=[...pool].sort((a,b)=>b.mastery-a.mastery||(b.accuracy??0)-(a.accuracy??0)||a.weakness-b.weakness).slice(0,strengthCount);
-  const improvements=[...pool].sort((a,b)=>b.weakness-a.weakness||a.mastery-b.mastery).slice(0,improveCount);
+  const practiced=rows.filter(r=>r.practiced);
+  const strengthCandidates=practiced.filter(isStrongRow).sort((a,b)=>b.strengthScore-a.strengthScore||b.mastery-a.mastery);
+  const strengths=strengthCandidates.slice(0,strengthCount);
+  const strengthIds=new Set(strengths.map(r=>r.topic.id));
+  const improvementCandidates=practiced.filter(r=>isWeakRow(r)&&!strengthIds.has(r.topic.id)).sort((a,b)=>b.weakness-a.weakness||a.mastery-b.mastery);
+  // If nothing qualifies as weak but practice exists, surface lowest strengthScore practiced rows not already strengths.
+  const improvements=(improvementCandidates.length?improvementCandidates:practiced.filter(r=>!strengthIds.has(r.topic.id)).sort((a,b)=>b.weakness-a.weakness)).slice(0,improveCount);
+
   const plan=[];
   for(const row of improvements){
     const day=TOPICS.indexOf(row.topic)+1;
@@ -49,15 +70,18 @@ export function analyzeLearner(state,{strengthCount=3,improveCount=4}={}){
       day,
       title:row.topic.title,
       action:row.cleared
-        ?`Run a mastery replay on Day ${day} (${row.topic.title}) — focus on the multi-step and NC word items until accuracy rises (${accPct}, ${row.misses} logged misses).`
-        :`Return to Day ${day} (${row.topic.title}): finish guided/practice to ≥${PASS_MASTERY}% mastery, then pass the Exit Ticket. Current mastery ${row.mastery}% · ${accPct}.`
+        ?`Run mastery replay on Day ${day} (${row.topic.title}) — emphasize multi-step + NC word items (${accPct}, ${row.misses} logged misses).`
+        :`Practice Day ${day} (${row.topic.title}) to ≥${PASS_MASTERY}% mastery and pass the Exit Ticket. Now ${row.mastery}% · ${accPct} · ${row.misses} misses.`
     });
   }
-  if(!improvements.length){
-    plan.push({topicId:null,day:null,title:'Keep exploring',action:'Start today’s lesson and build enough attempts for personalized coaching.'});
+  if(!practiced.length){
+    plan.push({topicId:null,day:null,title:'Get started',action:'Start today’s lesson. Strengths, improvements, and fine-tuning focus appear after real practice and mistakes.'});
+  }else if(!improvements.length){
+    plan.push({topicId:null,day:null,title:'Keep sharpening',action:'Nice work — no major weak spots yet. Use mastery replay or Open-Ended Mastery to keep skills sharp.'});
   }
+
   const autoFocusIds=improvements.map(r=>r.topic.id);
-  return{strengths,improvements,plan,autoFocusIds,rows};
+  return{strengths,improvements,plan,autoFocusIds,rows,practicedCount:practiced.length};
 }
 
 /** Resolve which topics open-ended / focused practice should emphasize. */
@@ -65,16 +89,15 @@ export function resolveFocusTopicIds(state,insights=analyzeLearner(state)){
   const mode=FOCUS_MODES.includes(state.settings?.focusMode)?state.settings.focusMode:'blend';
   const manual=(state.settings?.focusTopicIds||[]).filter(id=>TOPICS.some(t=>t.id===id));
   const auto=insights.autoFocusIds||[];
-  if(mode==='manual'&&manual.length)return[...new Set(manual)];
+  if(mode==='manual')return manual.length? [...new Set(manual)] : (auto.length?auto:TOPICS.map(t=>t.id));
   if(mode==='auto')return auto.length?auto:TOPICS.map(t=>t.id);
-  // blend: parent pins first, then auto improvements, then remaining spine
-  const blended=[...manual,...auto, ...TOPICS.map(t=>t.id)];
+  const blended=[...manual,...auto,...TOPICS.map(t=>t.id)];
   return[...new Set(blended)].filter(id=>TOPICS.some(t=>t.id===id));
 }
 
 export function focusModeLabel(mode){
   if(mode==='manual')return'Parent-selected topics only';
-  if(mode==='auto')return'Automated from strengths/improvements';
+  if(mode==='auto')return'Automated from learner strengths/improvements';
   return'Blend parent pins + automated improvement focus';
 }
 
@@ -86,5 +109,5 @@ export function weekStandardForTopic(topic){
 export function formatInsightChip(row){
   const day=TOPICS.indexOf(row.topic)+1;
   const acc=row.accuracy==null?'—':`${Math.round(row.accuracy*100)}%`;
-  return{day,id:row.topic.id,icon:row.topic.icon,title:row.topic.title,mastery:row.mastery,accuracy:acc,misses:row.misses,standard:weekStandardForTopic(row.topic)};
+  return{day,id:row.topic.id,icon:row.topic.icon,title:row.topic.title,mastery:row.mastery,accuracy:acc,misses:row.misses,standard:weekStandardForTopic(row.topic),attempts:row.attempts};
 }
