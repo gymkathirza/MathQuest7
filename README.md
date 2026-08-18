@@ -26,6 +26,7 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
 - Parent/Admin practice knobs: Exit Ticket volume for new days, plus mastery-replay volume for completed days / open-ended quest.
 - Open-Ended Mastery Quest after all 20 days (mixed advanced NC.7 practice across the full spine).
 - Strengths / improvements coaching on both the student home and Parent/Admin dashboard (GIF-style step previews; Practice is student-only), with optional parent-pinned fine-tuning for open-ended practice.
+- Open-ended mastery (after Day 20): student header shows yesterday + today active mastery time; Parent/Admin table lists Day 21+ practice hours (active time only; 20-minute break rule retained).
 - Parent dashboard with overall accuracy, problems solved, XP, best streak, and mastery by math zone.
 - Automatic local progress saving.
 - Progressive Web App (PWA) support so the game can be added to an iPad or phone Home Screen.

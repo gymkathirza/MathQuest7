@@ -4,7 +4,7 @@ import {fileURLToPath} from 'node:url';
 import {dirname,join} from 'node:path';
 import {TOPICS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,canTakeExit,updateMastery} from '../js/curriculum.mjs';
 import {generateDailyBenchmark,CORE_DAILY_COUNT,LEVEL_COUNTS,NC_LOCATIONS} from '../js/daily-session.mjs';
-import {IDLE_PAUSE_MS,todayKey,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,activeElapsedMs} from '../js/practice-timer.mjs';
+import {IDLE_PAUSE_MS,todayKey,yesterdayKey,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,activeElapsedMs,resetMasterySession,flushMasterySegment,masteryDayTotalMs,formatPracticeDuration,masteryLogRows,MASTERY_DAY_BASE} from '../js/practice-timer.mjs';
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,allTopicsCleared,openEndedUnlocked,MASTERY_LEVEL_COUNTS,OPEN_ENDED_ID} from '../js/mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,SYLLABUS_GAPS} from '../js/learner-insights.mjs';
 import {boostStepsForTopic,boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from '../js/coach-visuals.mjs';
@@ -37,6 +37,9 @@ assert.ok(indexSource.includes('masteryReplayTarget'),'Parent panel must expose 
 assert.ok(indexSource.includes('strengths')&&indexSource.includes('improvements')&&indexSource.includes('improvePlan'),'Parent panel must show strengths, improvements, and plan');
 assert.ok(indexSource.includes('masteryReview'),'Parent panel must include mastery review');
 assert.ok(indexSource.includes('focusMode'),'Parent panel must expose open-ended focus mode');
+assert.ok(indexSource.includes('masteryTimeLog'),'Parent panel must show mastery practice time table');
+assert.ok(indexSource.includes('masteryTimePill'),'Student header must show mastery yesterday/today time');
+assert.ok(/resetMasterySession|flushMasterySegment|masteryPracticeByDay/.test(appSource),'Open-ended mastery must track per-day active practice time');
 assert.ok(SYLLABUS_GAPS.length>=5,'Syllabus gap notes should cover major NC.7 domains');
 assert.ok(TOPICS.every(t=>boostStepsForTopic(t.id).length>=3),`Every topic needs granular GIF boost steps`);
 assert.ok(boostPathHtml(TOPICS[3]).includes('GIF-style boost path'),'Boost path HTML must label the GIF walkthrough');
@@ -65,6 +68,33 @@ assert.equal(canResumePractice({onBreak:true,hidden:false,idle:false}),false);
 assert.equal(canResumePractice({onBreak:false,hidden:true,idle:false}),false);
 assert.equal(canResumePractice({onBreak:false,hidden:false,idle:true}),false);
 assert.equal(canResumePractice({onBreak:false,hidden:false,idle:false}),true);
+
+// Open-ended mastery day log: visit stopwatch resets; daily totals accumulate; away time excluded.
+const masteryState={masteryPracticeByDay:{},masterySessionMs:0};
+resetMasterySession(masteryState);
+assert.equal(masteryState.masterySessionMs,0);
+let mSince=Date.parse('2026-08-18T10:00:00');
+mSince=flushMasterySegment(masteryState,mSince,Date.parse('2026-08-18T10:10:00'));
+assert.equal(mSince,null);
+assert.equal(masteryState.masteryPracticeByDay['2026-08-18'],10*60*1000);
+assert.equal(masteryState.masterySessionMs,10*60*1000);
+// break / away — no open segment, totals unchanged
+assert.equal(masteryDayTotalMs(masteryState,'2026-08-18',null,Date.parse('2026-08-18T10:40:00')),10*60*1000);
+resetMasterySession(masteryState);
+assert.equal(masteryState.masterySessionMs,0,'Visit timer resets; daily total kept');
+assert.equal(masteryState.masteryPracticeByDay['2026-08-18'],10*60*1000);
+mSince=Date.parse('2026-08-18T11:00:00');
+mSince=flushMasterySegment(masteryState,mSince,Date.parse('2026-08-18T11:20:00'));
+assert.equal(masteryState.masteryPracticeByDay['2026-08-18'],30*60*1000,'10+20 active minutes');
+assert.equal(formatPracticeDuration(30*60*1000),'30 min');
+assert.equal(formatPracticeDuration(2*60*60*1000),'2 hr');
+assert.equal(formatPracticeDuration(2*60*60*1000+15*60*1000),'2 hr 15 min');
+masteryState.masteryPracticeByDay['2026-08-19']=60*60*1000;
+const rows=masteryLogRows(masteryState,null,Date.parse('2026-08-19T12:00:00'));
+assert.equal(rows[0].dayLabel,`Day ${MASTERY_DAY_BASE}`);
+assert.equal(rows[1].dayLabel,`Day ${MASTERY_DAY_BASE+1}`);
+assert.equal(rows[1].label,'1 hr');
+assert.match(yesterdayKey(new Date('2026-08-19T12:00:00')),/2026-08-18/);
 
 assert.equal(TOPICS.length,20,'Expected 20 daily topics');
 assert.equal(PASS_MASTERY,80,'Mastery unlock must remain 80%');

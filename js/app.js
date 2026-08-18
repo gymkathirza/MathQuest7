@@ -1,23 +1,39 @@
 import {TOPICS,WEEKS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,canTakeExit,updateMastery} from './curriculum.mjs';
 import {generateDailyBenchmark,CORE_DAILY_COUNT} from './daily-session.mjs';
-import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice} from './practice-timer.mjs';
+import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,resetMasterySession,flushMasterySegment,masterySessionElapsedMs,masteryDayTotalMs,formatPracticeDuration,yesterdayKey,todayKey,masteryLogRows} from './practice-timer.mjs';
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
 const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
-function defaultState(){return{xp:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN}}
-let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,runningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
-function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
+function defaultState(){return{xp:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0}}
+let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
+function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels()}
-function renderTop(){$('xp').textContent=S.xp;$('streak').textContent=S.streak}
+function renderTop(){
+  $('xp').textContent=S.xp;$('streak').textContent=S.streak;
+  const pill=$('masteryTimePill');if(!pill)return;
+  if(!openEndedUnlocked(S)){pill.classList.add('hidden');return}
+  pill.classList.remove('hidden');
+  const yKey=yesterdayKey(),tKey=todayKey();
+  const yMs=masteryDayTotalMs(S,yKey),tMs=masteryDayTotalMs(S,tKey,sessionMode==='open'?masteryRunningSince:null);
+  const yTxt=yMs>0?formatPracticeDuration(yMs):'none';
+  const tTxt=formatPracticeDuration(tMs);
+  pill.textContent=`♾️ Mastery · Yesterday ${yTxt} · Today ${tTxt}`;
+  pill.dataset.tip=`Open-ended mastery active practice only (pauses on breaks, hidden tab, or 5+ min away). Visit stopwatch resets each time you start mastery practice; daily totals keep adding. 20–20–20 breaks still apply.`;
+}
 function onHome(){return!$('home').classList.contains('hidden')}
 function onParentDashboard(){return!$('parent').classList.contains('hidden')&&!$('dashboard').classList.contains('hidden')}
 function refreshInsightPanels(){if(onHome())renderStudentCoach();if(onParentDashboard())renderDashboard()}
-function go(id){for(const x of ['home','learn','parent'])$(x).classList.toggle('hidden',x!==id);if(id==='home')renderMap();if(id==='parent')pausePractice();else{noteActivity();resumePractice()}}
-function syncPracticeDay(){if(ensurePracticeDay(S)){runningSince=runningSince!=null?Date.now():null}}
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.16.0'}}
+function syncPracticeDay(){if(ensurePracticeDay(S)){runningSince=runningSince!=null?Date.now():null;if(sessionMode==='open'&&masteryRunningSince!=null)masteryRunningSince=Date.now()}}
+function go(id){
+  for(const x of ['home','learn','parent'])$(x).classList.toggle('hidden',x!==id);
+  if(id==='parent'||(id==='home'&&sessionMode==='open'))pausePractice();
+  if(id==='home')renderMap();
+  if(id!=='parent'){noteActivity();resumePractice()}
+}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.17.0'}}
 function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
@@ -56,9 +72,10 @@ function nextDayIndex(){const i=TOPICS.findIndex((t,j)=>topicUnlocked(S,j)&&!S.c
 function updateContinueLabel(){const allDone=allTopicsCleared(S);$('continueBtn').textContent=allDone?`▶ ${OPEN_ENDED_ICON} Open-Ended Mastery`:`▶ Start / Continue Today (Day ${nextDayIndex()+1})`}
 function continueJourney(){if(allTopicsCleared(S))startOpenEnded();else startLesson(nextDayIndex())}
 function beginLearnSurface(){save();go('learn');noteActivity();resumePractice();startClock()}
-function startLesson(i){if(!topicUnlocked(S,i))return;current=i;S.day=i;boostMode=false;const done=S.cleared[TOPICS[i].id]&&S.mastery[TOPICS[i].id]>=PASS_MASTERY;sessionMode=done?'replay':'learn';sessionPracticeStart=S.attempts[TOPICS[i].id].n;beginLearnSurface();if(done)showMasteryRecap();else showWarmup()}
+function startLesson(i){if(!topicUnlocked(S,i))return;if(sessionMode==='open'){masteryRunningSince=flushMasterySegment(S,masteryRunningSince);save()}current=i;S.day=i;boostMode=false;const done=S.cleared[TOPICS[i].id]&&S.mastery[TOPICS[i].id]>=PASS_MASTERY;sessionMode=done?'replay':'learn';sessionPracticeStart=S.attempts[TOPICS[i].id].n;beginLearnSurface();if(done)showMasteryRecap();else showWarmup()}
 function startImprovementPractice(i){
   if(!topicUnlocked(S,i))return;
+  if(sessionMode==='open'){masteryRunningSince=flushMasterySegment(S,masteryRunningSince);save()}
   current=i;S.day=i;boostMode=true;
   const done=S.cleared[TOPICS[i].id]&&S.mastery[TOPICS[i].id]>=PASS_MASTERY;
   sessionMode=done?'replay':'learn';
@@ -66,7 +83,14 @@ function startImprovementPractice(i){
   beginLearnSurface();
   showBoostPath();
 }
-function startOpenEnded(){if(!openEndedUnlocked(S))return;sessionMode='open';boostMode=false;current=TOPICS.length-1;S.day=TOPICS.length-1;sessionPracticeStart=S.attempts[OPEN_ENDED_ID].n;beginLearnSurface();showOpenRecap()}
+function startOpenEnded(){
+  if(!openEndedUnlocked(S))return;
+  masteryRunningSince=flushMasterySegment(S,masteryRunningSince);
+  resetMasterySession(S);
+  sessionMode='open';boostMode=false;current=TOPICS.length-1;S.day=TOPICS.length-1;sessionPracticeStart=S.attempts[OPEN_ENDED_ID].n;
+  beginLearnSurface();
+  showOpenRecap();
+}
 function showBoostPath(){
   setPhase('learn');$('feedback').innerHTML='';$('interaction').innerHTML='';
   const t=TOPICS[current],insights=currentInsights();
@@ -77,10 +101,10 @@ function showBoostPath(){
 }
 function elapsedMin(){syncPracticeDay();return Math.max(0,elapsedPracticeMin(S.practiceMs,runningSince))}
 function onParentScreen(){return!$('parent').classList.contains('hidden')}
-function pausePractice(){runningSince=pauseSegment(S,runningSince);save()}
-function resumePractice(){syncPracticeDay();if(onParentScreen())return;const hidden=typeof document!=='undefined'&&document.visibilityState==='hidden';const idle=shouldIdlePause(lastActiveAt,Date.now(),IDLE_PAUSE_MS);if(!canResumePractice({onBreak,hidden,idle}))return;if(runningSince==null)runningSince=Date.now()}
+function pausePractice(){runningSince=pauseSegment(S,runningSince);if(sessionMode==='open')masteryRunningSince=flushMasterySegment(S,masteryRunningSince);save()}
+function resumePractice(){syncPracticeDay();if(onParentScreen())return;const hidden=typeof document!=='undefined'&&document.visibilityState==='hidden';const idle=shouldIdlePause(lastActiveAt,Date.now(),IDLE_PAUSE_MS);if(!canResumePractice({onBreak,hidden,idle}))return;if(runningSince==null)runningSince=Date.now();if(sessionMode==='open'&&masteryRunningSince==null&&!onHome())masteryRunningSince=Date.now()}
 function noteActivity(){lastActiveAt=Date.now();if(!onBreak&&!onParentScreen()&&typeof document!=='undefined'&&document.visibilityState!=='hidden')resumePractice()}
-function startClock(){clearInterval(timer);const tick=()=>{syncPracticeDay();if(runningSince!=null&&shouldIdlePause(lastActiveAt,Date.now(),IDLE_PAUSE_MS))pausePractice();const m=elapsedMin();$('sessionClock').textContent=`⏱ ${m} min`;$('sessionClock').dataset.tip=`Cool, you have about ${m} minute${m===1?'':'s'} of active practice today..! The timer pauses on breaks, when the tab is hidden, or after 5 minutes away. Keep going — and take healthy screen breaks!`;if(!onBreak&&m>=S.nextBreakMin)triggerBreak(m)};tick();timer=setInterval(tick,1000)}
+function startClock(){clearInterval(timer);const tick=()=>{syncPracticeDay();if(runningSince!=null&&shouldIdlePause(lastActiveAt,Date.now(),IDLE_PAUSE_MS))pausePractice();const m=elapsedMin();$('sessionClock').textContent=`⏱ ${m} min`;$('sessionClock').dataset.tip=`Cool, you have about ${m} minute${m===1?'':'s'} of active practice today..! The timer pauses on breaks, when the tab is hidden, or after 5 minutes away. Keep going — and take healthy screen breaks!`;if(sessionMode==='open'){const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}renderTop();if(!onBreak&&m>=S.nextBreakMin)triggerBreak(m)};tick();timer=setInterval(tick,1000)}
 function showToast(msg,ms=9000){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.classList.add('hidden'),400)},ms)}
 function triggerBreak(m){onBreak=true;pausePractice();showToast(`⏸️ Cool — you've practiced for about ${m} minutes! 👏 Time to stand up, stretch, hydrate, and rest your eyes (look ~20 ft away for 20 sec). Learning should be fun — let's take a healthy screen break!`,12000);openBreak(m)}
 function openBreak(m){const ov=$('breakOverlay');ov.classList.remove('hidden');$('breakChoose').classList.remove('hidden');$('breakCountdown').classList.add('hidden');$('breakDone').classList.add('hidden');$('breakTitle').textContent='🧘 Time for a screen break!';$('breakMsg').textContent=`You've been practicing for about ${m} minutes — awesome focus! Screens are for learning, not for sitting too long. Pick a break length below. The screen will rest so you can move around, stretch, drink water, and look far away.`}
@@ -88,7 +112,7 @@ function startBreakCountdown(mins){const start=Date.now(),total=mins*60;$('break
 function endBreak(){S.nextBreakMin+=BREAK_EVERY_MIN;onBreak=false;save();$('breakCountdown').classList.add('hidden');$('breakChoose').classList.add('hidden');$('breakDone').classList.remove('hidden');$('breakTitle').textContent='🎉 Welcome back!';$('breakMsg').textContent='Great job taking a healthy break. Your practice timer paused while you rested. Ready to keep learning?'}
 function setPhase(p){
   for(const x of PHASES)$('p'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===p);
-  if(sessionMode==='open'){$('topicName').textContent=`${OPEN_ENDED_ICON} ${OPEN_ENDED_TITLE}`;$('masteryPill').textContent=`${S.attempts[OPEN_ENDED_ID].n} mixed practices`}
+  if(sessionMode==='open'){$('topicName').textContent=`${OPEN_ENDED_ICON} ${OPEN_ENDED_TITLE}`;const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}
   else{$('topicName').textContent=`${sessionMode==='replay'?'♻️ Mastery · ':''}Day ${current+1}: ${TOPICS[current].title}`;$('masteryPill').textContent=`${S.mastery[TOPICS[current].id]}% mastery`}
 }
 function button(label,fn,cls='btn'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=fn;return b}
@@ -101,7 +125,9 @@ function showOpenRecap(){
   const insights=currentInsights(),focusIds=resolveFocusTopicIds(S,insights);
   const focusTitles=focusIds.slice(0,5).map(id=>{const i=TOPICS.findIndex(t=>t.id===id);return`Day ${i+1}: ${TOPICS[i].title}`});
   const planLines=insights.plan.slice(0,4).map(p=>p.action);
-  $('lessonBody').innerHTML=openEndedRecapHtml({focusTitles,planLines,modeLabel:focusModeLabel(S.settings.focusMode)});
+  const yMs=masteryDayTotalMs(S,yesterdayKey()),tMs=masteryDayTotalMs(S,todayKey(),masteryRunningSince);
+  const timeNote=`<p class="small">⏱️ Mastery active time · Yesterday: <b>${formatPracticeDuration(yMs)}</b> · Today so far: <b>${formatPracticeDuration(tMs)}</b> · This visit starts at 0 and pauses when you leave or take a break (20–20–20 still applies).</p>`;
+  $('lessonBody').innerHTML=openEndedRecapHtml({focusTitles,planLines,modeLabel:focusModeLabel(S.settings.focusMode)})+timeNote;
   $('interaction').append(button('Begin focused advanced practice →',showPractice));
 }
 function showPractice(){
@@ -177,6 +203,8 @@ function renderDashboard(){
   $('strengths').innerHTML=insights.strengths.length?insights.strengths.map(formatInsightChip).map(c=>`<div class="coachItem"><b>${c.icon} Day ${c.day}: ${esc(c.title)}</b><span class="small">${c.standard} · Mastery ${c.mastery}% · Accuracy ${c.accuracy} · ${c.attempts} attempts · ${c.misses} misses</span></div>`).join(''):'<p class="small">No strengths yet — need solid practice evidence (accuracy and mastery) on a day first.</p>';
   $('improvements').innerHTML=insights.improvements.length?insights.improvements.map(row=>{const plan=insights.plan.find(p=>p.topicId===row.topic.id);return improvementPreviewHtml(row.topic,plan?.action||`Focus Day ${TOPICS.indexOf(row.topic)+1}: ${row.topic.title}`,{forParent:true})}).join(''):'<p class="small">No improvement targets yet. After the learner misses questions or stays below 80% mastery, targets appear here automatically.</p>';
   $('improvePlan').innerHTML=`<div class="parentNote">👁 Parent/Admin view is read-only. Practice / GIF boost buttons are student-only on the home coaching plan so adults reviewing here do not start practice or change progress.</div>`+(insights.plan.filter(p=>p.day!=null).length?insights.plan.filter(p=>p.day!=null).map(p=>improvementPreviewHtml(TOPICS[p.day-1],p.action,{forParent:true})).join(''):insights.plan.map(p=>`<div class="coachItem"><b>${esc(p.title||'Plan')}</b><span class="small">${esc(p.action)}</span></div>`).join(''));
+  const masteryRows=masteryLogRows(S,sessionMode==='open'?masteryRunningSince:null);
+  $('masteryTimeLog').innerHTML=masteryRows.length?`<p class="small">Active open-ended mastery practice only (breaks, hidden tab, and 5+ min away do not count). Visit stopwatch resets each time the student starts mastery practice; daily totals keep adding. 20-minute healthy-break rule still applies.</p><table class="masteryTimeTable"><thead><tr><th>Mastery day</th><th>Date</th><th>Active practice</th></tr></thead><tbody>${masteryRows.map(r=>`<tr><td>${esc(r.dayLabel)}</td><td>${esc(r.date)}</td><td><b>${esc(r.label)}</b></td></tr>`).join('')}</tbody></table>`:'<p class="small">No open-ended mastery practice time logged yet. After Day 20 unlocks, active practice minutes appear here by calendar day (Day 21, Day 22, …).</p>';
   $('masteryReview').innerHTML=TOPICS.map((t,i)=>{const u=topicUnlocked(S,i),done=S.cleared[t.id]&&S.mastery[t.id]>=PASS_MASTERY,a=S.attempts[t.id],accPct=a.n?Math.round(a.c/a.n*100):null;return`<div class="focusItem"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="tag">${S.mastery[t.id]}%${done?' ✓':''}${accPct!=null?` · ${accPct}%`:''}</span></div>`}).join('');
   $('syllabusGaps').innerHTML=SYLLABUS_GAPS.map(g=>`<div class="gapItem"><b>${esc(g.domain)}</b><span class="small">${esc(g.missing)}</span></div>`).join('');
   const counts={},reasons={};for(const e of S.errorLog){counts[e.topic]=(counts[e.topic]||0)+1;if(e.reason)reasons[e.reason]=(reasons[e.reason]||0)+1}
