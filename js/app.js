@@ -4,13 +4,12 @@ import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shoul
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
-import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById} from './rewards.mjs';
-const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
+import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
-function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0}}
+function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0}}
 let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,previewTimer=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
-function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
+function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome())renderRealm();renderCompanionStrip()}
 function artMarkup(entry){
   const src=entryArtUrl(entry);
@@ -34,8 +33,7 @@ function renderCompanionStrip(){
   const more=view.overflow?`<div class="companionMore">+${view.overflow}</div>`:'';
   el.innerHTML=`<div class="companionInner">${pet}${builds}${more}</div>`;
   bindArtFallbacks(el);
-}
-function renderTop(){
+}function renderTop(){
   $('xp').textContent=S.xp;$('streak').textContent=S.streak;
   const coinsEl=$('coins');if(coinsEl)coinsEl.textContent=S.coins;
   const titleEl=$('heroTitle');if(titleEl)titleEl.textContent=heroTitle(S.xp);
@@ -51,20 +49,34 @@ function renderTop(){
 }
 function onHome(){return!$('home').classList.contains('hidden')}
 function onParentDashboard(){return!$('parent').classList.contains('hidden')&&!$('dashboard').classList.contains('hidden')}
-function refreshInsightPanels(){if(onHome()){renderStudentCoach();renderRealm()}if(onParentDashboard())renderDashboard()}
+function refreshInsightPanels(){if(onHome()){renderStudentCoach();renderRealm();renderDayClearCoinClaim()}if(onParentDashboard())renderDashboard()}
 function syncPracticeDay(){if(ensurePracticeDay(S)){runningSince=runningSince!=null?Date.now():null;if(sessionMode==='open'&&masteryRunningSince!=null)masteryRunningSince=Date.now()}}
 function go(id){
   for(const x of ['home','learn','parent'])$(x).classList.toggle('hidden',x!==id);
   if(id==='parent'||(id==='home'&&sessionMode==='open'))pausePractice();
-  if(id==='home')renderMap();
+  if(id==='home'){renderMap();renderDayClearCoinClaim()}
   if(id!=='parent'){noteActivity();resumePractice()}
   renderCompanionStrip();
 }
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.20.0'}}
-function currentInsights(){return analyzeLearner(S)}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.20.1'}}function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
 function goalLabel(n){return n===0?'∞':String(n)}
+function renderDayClearCoinClaim(){
+  const box=$('dayClearCoinClaim');if(!box)return;
+  const preview=dayClearCoinBackfillPreview(S);
+  if(preview.days<=0){box.classList.add('hidden');box.innerHTML='';box.setAttribute('hidden','');return}
+  box.classList.remove('hidden');box.removeAttribute('hidden');
+  const dayWord=preview.days===1?'day':'days';
+  box.innerHTML=`<h2>🪙 Claim missed day-clear coins</h2><p>You already cleared <b>${preview.days}</b> ${dayWord} before day-clear coins were tracked. Claim <b>${preview.coins}</b> 🪙 once (${preview.days} × 100) — spend them in My Realm. This does not change mastery or unlock days.</p><button type="button" class="btn" id="claimDayClearCoinsBtn">Claim ${preview.coins} coins for ${preview.days} cleared ${dayWord}</button>`;
+  const btn=$('claimDayClearCoinsBtn');
+  if(btn)btn.onclick=()=>{
+    const r=claimDayClearCoinBackfill(S);
+    if(!r.ok)return showToast(r.reason||'Nothing to claim',3500);
+    save();
+    showToast(`Claimed ${r.coins} 🪙 for ${r.days} cleared ${r.days===1?'day':'days'}!`,5000);
+  };
+}
 function renderStudentCoach(){
   const insights=currentInsights(),box=$('studentCoach');if(!box)return;
   if(!insights.practicedCount){
@@ -298,7 +310,7 @@ function benchSummary(){
 }
 function startExit(){setPhase('exit');exit={left:3,correct:0};nextExitQuestion()}
 function nextExitQuestion(){if(exit.left<=0)return finishExit();q=generateProblem(TOPICS[current].id);$('lessonBody').innerHTML=`<div class="exit"><h2>🎫 Exit Ticket</h2><p>Question ${4-exit.left} of 3</p><p class="concept">${q.q}</p></div>`;$('feedback').innerHTML='';renderAnswers(q,v=>{const ok=String(v)===String(q.a);if(ok)exit.correct++;exit.left--;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Correct. ${q.explain}</div>`:`<div class="feedback bad">💡 ${q.explain}</div>`;$('feedback').append(button(exit.left?'Next Exit Question →':'Finish Exit Ticket →',nextExitQuestion))})}
-function finishExit(){const id=TOPICS[current].id,passed=exit.correct>=2&&S.mastery[id]>=PASS_MASTERY;if(passed){S.cleared[id]=true;const clearReward=awardDayClearRewards(S);save();setPhase('review');const allDone=allTopicsCleared(S);$('lessonBody').innerHTML=`<h2>🏆 Day ${current+1} Cleared!</h2><p class="concept">Exit Ticket: ${exit.correct}/3. Mastery: ${S.mastery[id]}%.</p><p class="small">Rewards: +${clearReward.xp} XP · +${clearReward.coins} 🪙 — spend coins in My Realm!</p><p>${allDone?`Amazing — all 20 days are complete! The ${OPEN_ENDED_TITLE} is now unlocked for mixed advanced practice forever.`:'You unlocked the next learning day. Older concepts will return in future warm-ups.'}</p><div class="celebrate">🏆 ⭐ 🎉</div>`;$('interaction').innerHTML='';$('feedback').innerHTML='';$('interaction').append(button(allDone?`Enter ${OPEN_ENDED_TITLE} →`:(current<TOPICS.length-1?'Return to roadmap →':'Enter Endless Mastery →'),()=>{if(allDone)startOpenEnded();else{noteActivity();resumePractice();save();go('home')}}));$('interaction').append(button('Extra practice on this skill',()=>{sessionMode='replay';sessionPracticeStart=S.attempts[id].n;showMasteryRecap()},'btn alt'))}else{$('lessonBody').innerHTML=`<h2>🔁 Review Loop</h2><p class="concept">Exit Ticket: ${exit.correct}/3. Mastery: ${S.mastery[id]}%.</p><p>You need at least 2 of 3 on the exit ticket and ${PASS_MASTERY}% mastery. We’ll loop back through practice instead of unlocking too soon.</p>`;$('interaction').innerHTML='';$('feedback').innerHTML='';$('interaction').append(button('Practice, then retry Exit Ticket →',showPractice))}}
+function finishExit(){const id=TOPICS[current].id,passed=exit.correct>=2&&S.mastery[id]>=PASS_MASTERY;if(passed){S.cleared[id]=true;const clearReward=awardDayClearRewards(S,id);save();setPhase('review');const allDone=allTopicsCleared(S);$('lessonBody').innerHTML=`<h2>🏆 Day ${current+1} Cleared!</h2><p class="concept">Exit Ticket: ${exit.correct}/3. Mastery: ${S.mastery[id]}%.</p><p class="small">Rewards: +${clearReward.xp} XP · +${clearReward.coins} 🪙 — spend coins in My Realm!</p><p>${allDone?`Amazing — all 20 days are complete! The ${OPEN_ENDED_TITLE} is now unlocked for mixed advanced practice forever.`:'You unlocked the next learning day. Older concepts will return in future warm-ups.'}</p><div class="celebrate">🏆 ⭐ 🎉</div>`;$('interaction').innerHTML='';$('feedback').innerHTML='';$('interaction').append(button(allDone?`Enter ${OPEN_ENDED_TITLE} →`:(current<TOPICS.length-1?'Return to roadmap →':'Enter Endless Mastery →'),()=>{if(allDone)startOpenEnded();else{noteActivity();resumePractice();save();go('home')}}));$('interaction').append(button('Extra practice on this skill',()=>{sessionMode='replay';sessionPracticeStart=S.attempts[id].n;showMasteryRecap()},'btn alt'))}else{$('lessonBody').innerHTML=`<h2>🔁 Review Loop</h2><p class="concept">Exit Ticket: ${exit.correct}/3. Mastery: ${S.mastery[id]}%.</p><p>You need at least 2 of 3 on the exit ticket and ${PASS_MASTERY}% mastery. We’ll loop back through practice instead of unlocking too soon.</p>`;$('interaction').innerHTML='';$('feedback').innerHTML='';$('interaction').append(button('Practice, then retry Exit Ticket →',showPractice))}}
 function openParent(){go('parent');$('parentLock').classList.remove('hidden');$('dashboard').classList.add('hidden');$('pinMsg').textContent='';$('parentPin').value='';$('pinIntro').textContent=localStorage.mq7ParentPin?'Enter your 4-digit Parent / Admin PIN.':'Create a 4-digit Parent / Admin PIN for this device.';$('practiceTarget').value=String(S.settings.practiceTarget);$('masteryReplayTarget').value=String(S.settings.masteryReplayTarget);$('focusMode').value=S.settings.focusMode||'blend'}
 function parentAuth(){const p=$('parentPin').value.trim();if(!/^\d{4}$/.test(p))return $('pinMsg').textContent='Use exactly 4 digits.';if(!localStorage.mq7ParentPin)localStorage.mq7ParentPin=p;if(p!==localStorage.mq7ParentPin)return $('pinMsg').textContent='Incorrect PIN.';$('parentLock').classList.add('hidden');$('dashboard').classList.remove('hidden');renderDashboard()}
 function renderFocusPins(){
@@ -341,5 +353,5 @@ $('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('ma
 document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')pausePractice();else{noteActivity();resumePractice()}});
 window.addEventListener('pagehide',pausePractice);
 ['pointerdown','keydown','touchstart','mousemove','scroll'].forEach(ev=>document.addEventListener(ev,noteActivity,{passive:true}));
-renderTop();renderMap();renderRealm();loadVersion();syncPracticeDay();noteActivity();resumePractice();startClock();
+renderTop();renderMap();renderRealm();renderDayClearCoinClaim();loadVersion();syncPracticeDay();noteActivity();resumePractice();startClock();
 if('serviceWorker'in navigator)navigator.serviceWorker.register(new URL('../sw.js',import.meta.url)).catch(()=>{});
