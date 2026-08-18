@@ -25,7 +25,7 @@ Files are grouped by category. Put new files in the matching location:
 
 - Web root (must stay at repo root for GitHub Pages URL + service-worker scope): `index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`.
 - `css/` — stylesheets (`app.css`).
-- `js/` — ES modules / app logic (`app.js`, `curriculum.mjs`, `daily-session.mjs`, `practice-timer.mjs`). Sibling imports use `./name.mjs`; anything the module needs from the web root (e.g. `version.json`, `sw.js`) is resolved with `new URL('../file', import.meta.url)`.
+- `js/` — ES modules / app logic (`app.js`, `curriculum.mjs`, `daily-session.mjs`, `practice-timer.mjs`, `mastery-session.mjs`). Sibling imports use `./name.mjs`; anything the module needs from the web root (e.g. `version.json`, `sw.js`) is resolved with `new URL('../file', import.meta.url)`.
 - `docs/` — all documentation and contracts (`STATE.md`, `MEMORY.md`, `VERSIONING.md`, `TEST_CREATION_BASELINE.md`, `SESSION_GENERATION_SPEC.md`, `session-generation-schema.json`, `README_V07.md`, `REGISTRATION_SETUP.md`, `TESTING.md`).
 - `tests/` — automated tests (`smoke.mjs`).
 - `.github/` — CI and deployment workflows; `.cursor/` — Cloud Agent environment and rules.
