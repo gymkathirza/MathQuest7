@@ -1,0 +1,41 @@
+---
+description: MathQuest 7 accessibility — prefer native HTML, use ARIA only for gaps; required for all UI features (practice, banners, companion, break, parent).
+alwaysApply: true
+---
+
+# MathQuest 7 accessibility (ARIA)
+
+Follow [W3C Using ARIA](https://www.w3.org/TR/using-aria/). Apply on **every** UI change in `index.html`, `css/app.css`, `js/app.js`, and modules that emit HTML.
+
+## First rule
+
+Prefer native HTML (`button`, `a`, `label`/`input`, `main`, `nav`, `header`, headings). Use ARIA only when native semantics cannot express the pattern.
+
+## Required patterns
+
+- **Landmarks:** one skip link to `#main`; keep a single `<main id="main">`; label major views (`Home`, `Lesson`, `Parent / Admin`).
+- **Controls:** interactive actions are real `<button type="button">` (or links for navigation). Accessible name from visible text or a concise `aria-label` — never unlabeled icon-only controls.
+- **Practice:** answer choices in a named group; `#feedback` stays a polite live region; guided tokens are keyboard-operable buttons.
+- **Progress:** phase steps use `aria-current="step"` on the active phase only.
+- **Banners / overlays:** seasonal + claim regions are polite/status; break overlay keeps `role="dialog"` + `aria-modal`, moves focus in, traps Tab lightly, restores focus on close.
+- **Companion:** decorative art may be `aria-hidden`; do **not** hide meaningful reaction status — update a polite live status text when the pet reacts.
+- **Parent PIN:** visible or `for=` label; errors via `role="alert"` / assertive live text.
+- **Motion:** preserve `prefers-reduced-motion` fallbacks; never require motion to understand state.
+
+## Anti-patterns
+
+```html
+<!-- ❌ BAD: clickable div, no name -->
+<div class="answer" onclick="...">3</div>
+
+<!-- ✅ GOOD -->
+<button type="button" class="answer">3</button>
+```
+
+- Do not put `aria-hidden="true"` on a focusable element or its ancestor while it can receive focus.
+- Do not add redundant roles on native landmarks (`role="main"` on `<main>`).
+- Do not spam assertive live regions for cosmetic cheer rotations.
+
+## Docs / tests
+
+Material a11y behavior changes update `docs/STATE.md` / `docs/MEMORY.md` in the same PR. Keep `tests/smoke.mjs` a11y contract asserts green.

@@ -56,9 +56,24 @@ assert.ok(!/seasonStarArt/.test(appSource)||!/<img class="seasonStarArt"/.test(a
 assert.ok(/background:\s*transparent/.test(cssSource)&&!/seasonStarTray\{[^}]*linear-gradient\(180deg,#0d2a44/.test(cssSource),'Season star tray must be transparent/merged — no dark inset box');
 assert.ok(/\.companionPet\{[^}]*overflow:\s*visible/.test(cssSource),'companionPet must use overflow:visible so bubbles/bounce are not clipped');
 assert.ok(/petCelebrate|petEncourage/.test(cssSource),'Pet celebrate/encourage keyframes must exist');
-assert.equal(version.version,'0.23.2');
-assert.ok(swSource.includes('mathquest7-v0.23.2'),'Service worker CACHE must pin mathquest7-v0.23.2');
+assert.equal(version.version,'0.24.0');
+assert.ok(swSource.includes('mathquest7-v0.24.0'),'Service worker CACHE must pin mathquest7-v0.24.0');
 assert.ok(indexSource.includes('seasonalBanner'),'Home must include seasonal banner mount');
+// Accessibility / ARIA contract (native-first; see .cursor/rules/mathquest-accessibility.mdc)
+assert.ok(/<html[^>]*\slang=["']en["']/.test(indexSource),'Document must declare lang=en');
+assert.ok(/class=["']skipLink["']/.test(indexSource)&&indexSource.includes('href="#main"'),'Skip link must target #main');
+assert.ok(/<main[^>]*\sid=["']main["']/.test(indexSource),'Page must expose a main landmark with id=main');
+assert.ok(/id=["']feedback["'][^>]*aria-live=["']polite["']/.test(indexSource)||/id=["']feedback["'][\s\S]*?aria-live=["']polite["']/.test(indexSource),'Practice feedback must be a polite live region');
+assert.ok(/id=["']toast["'][^>]*aria-live=["']polite["']/.test(indexSource),'Toast must remain a polite status live region');
+assert.ok(/id=["']breakOverlay["'][^>]*role=["']dialog["']/.test(indexSource)&&/aria-modal=["']true["']/.test(indexSource),'Break overlay must use dialog + aria-modal');
+assert.ok(/for=["']parentPin["']/.test(indexSource),'Parent PIN input must have an associated label');
+assert.ok(/id=["']pinMsg["'][^>]*role=["']alert["']/.test(indexSource),'PIN errors must use role=alert');
+assert.ok(/id=["']companionStatus["']/.test(indexSource)||/companionStatus/.test(appSource),'Companion must expose a status live region for reactions');
+assert.ok(/PET_REACT_STATUS|Companion celebrates|aria-current=['"]step['"]/.test(appSource),'Pet reactions and phase aria-current must be wired in app.js');
+assert.ok(/role=["']group["'][^>]*aria-label=["']Answer choices["']|aria-label=["']Answer choices["']/.test(appSource),'Answer choices must be a named group');
+assert.ok(/button type=["']button["'] class=["']token["']|<button type="button" class="token"/.test(appSource),'Guided tokens must be real buttons');
+assert.ok(/closeBreakOverlay|onBreakKeydown|breakPrevFocus/.test(appSource),'Break overlay must manage focus trap / restore');
+assert.ok(existsSync(join(repoRoot,'.cursor/rules/mathquest-accessibility.mdc')),'Always-on accessibility Cursor rule must exist');
 assert.ok(swSource.includes('assets/seasonal/'),'Service worker must cache seasonal assets');
 assert.equal(DEFAULT_PET_ID,'fox');
 const migrated={pets:[],activePet:null};

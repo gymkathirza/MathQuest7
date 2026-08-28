@@ -17,6 +17,7 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
   - Geometry Forge — scale drawings, circles, area, and related geometry skills.
   - Probability Wilds — sampling, probability, averages, and data reasoning.
 - Immediate feedback after every answer.
+- Accessibility baseline: keyboard-friendly controls, landmarks/skip link, ARIA live feedback, and reduced-motion-safe motion (see `.cursor/rules/mathquest-accessibility.mdc`).
 - Explanations after mistakes so the learner can understand the method instead of only seeing the correct answer.
 - Optional hints for difficult problems.
 - XP, coins (streak-boosted), streaks, hero titles, My Realm isometric buildings/pets/skins (with free Preview and a practice-corner companion strip).
