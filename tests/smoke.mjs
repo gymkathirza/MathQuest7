@@ -56,8 +56,9 @@ assert.ok(!/seasonStarArt/.test(appSource)||!/<img class="seasonStarArt"/.test(a
 assert.ok(/background:\s*transparent/.test(cssSource)&&!/seasonStarTray\{[^}]*linear-gradient\(180deg,#0d2a44/.test(cssSource),'Season star tray must be transparent/merged — no dark inset box');
 assert.ok(/\.companionPet\{[^}]*overflow:\s*visible/.test(cssSource),'companionPet must use overflow:visible so bubbles/bounce are not clipped');
 assert.ok(/petCelebrate|petEncourage/.test(cssSource),'Pet celebrate/encourage keyframes must exist');
-assert.equal(version.version,'0.24.0');
-assert.ok(swSource.includes('mathquest7-v0.24.0'),'Service worker CACHE must pin mathquest7-v0.24.0');
+assert.equal(version.version,'0.24.1');
+assert.ok(swSource.includes('mathquest7-v0.24.1'),'Service worker CACHE must pin mathquest7-v0.24.1');
+assert.ok(/\.lesson\s+\.small,\.boostStep\s+\.small,\.gifFrame\s+\.small/.test(cssSource)&&/\.boostStep\s+\.small[^{]*\{[^}]*color:\s*#23313c/.test(cssSource.replace(/\s+/g,' ')),'Light surfaces must override .small to dark readable text (#23313c)');
 assert.ok(indexSource.includes('seasonalBanner'),'Home must include seasonal banner mount');
 // Accessibility / ARIA contract (native-first; see .cursor/rules/mathquest-accessibility.mdc)
 assert.ok(/<html[^>]*\slang=["']en["']/.test(indexSource),'Document must declare lang=en');

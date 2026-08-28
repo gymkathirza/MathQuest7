@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.24.0`
-- Release label: `aria-accessibility`
+- Version: `0.24.1`
+- Release label: `contrast-readable-text`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
@@ -46,6 +46,7 @@ Current design includes:
 - Parent / Admin trophies row plus coins stat alongside XP/accuracy; **Award coins** card (50/100/200 presets + custom with confirm) persists via `save()` / `S.coins` only and appends a local `parentCoinAwards` audit log (last 20) shown on the dashboard
 - **Seasonal Home banner** (`js/seasonal.mjs`): dismissible local seasons (first: **Back to school!** in Aug–Sep) with rotating cheer lines; a single centered emoji star marquee sits **inside the banner card** above Dismiss (transparent tray — no dark inset / PNG strip); no full-page star shower; `prefers-reduced-motion` safe; offline; no CDN
 - **Accessibility (ARIA) baseline** (`0.24.0`): `lang=en`, skip link → `#main`, labeled Home/Lesson/Parent landmarks, polite `#feedback` + toast live regions, named answer groups, guided tokens as real buttons, phase `aria-current`, companion polite status text on pet react (decorative strip art hidden from AT), break dialog focus move/Tab trap/restore, Parent PIN `<label>` + `role="alert"` errors; durable rule `.cursor/rules/mathquest-accessibility.mdc`; plan notes in `docs/superpowers/plans/2026-08-28-aria-accessibility.md`
+- **Readable light-surface text** (`0.24.1`): `.small` stays light (`#b9d6e7`) on dark navy UI, but lesson/boost/GIF/illus/exit/miss/feedback/praise light cards override `.small` to `#23313c` so GIF boost captions and teach copy meet WCAG-ish contrast
 - Every learner receives a free starter pet (`DEFAULT_PET_ID` Integer Fox via `ensureDefaultPet`); companion strip pet uses `overflow:visible` so celebrate/encourage motion + emoji bubble are not clipped across warm-up/learn/guided/practice/review/exit and after answers. Reactions survive `save()` re-renders via pending react + `setPhase({answerReact})`; emoji art fallback still animates
 - Parent / Admin portal (renamed from "Parent"), PIN-gated: overall progress, Strengths, Improvements (GIF-style step previews, read-only), Improvement plan (read-only; no Practice buttons), Mastery review, miss-based focus areas, week mastery, syllabus coverage gap notes, Exit Ticket volume, mastery-replay target, open-ended focus mode (auto/blend/manual), and day pin checkboxes. Export/change PIN/reset/clear retained
 - student home coaching plan card: positive praise + celebration animations for strengths; improvement plan with GIF step previews; **Practice Day N with GIF steps** (student-only) opens a granular boost walkthrough then practice; scores/mastery update and strengths/improvements recalibrate after each save
