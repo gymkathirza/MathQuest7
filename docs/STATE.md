@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.24.2`
-- Release label: `clear-english-copy`
+- Version: `0.25.0` (pending PR — coach-plan-recovery)
+- Release label: `coach-plan-recovery`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`

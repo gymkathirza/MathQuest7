@@ -6,7 +6,7 @@ import {TOPICS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,c
 import {generateDailyBenchmark,CORE_DAILY_COUNT,LEVEL_COUNTS,NC_LOCATIONS} from '../js/daily-session.mjs';
 import {IDLE_PAUSE_MS,todayKey,yesterdayKey,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,activeElapsedMs,resetMasterySession,flushMasterySegment,masteryDayTotalMs,formatPracticeDuration,masteryLogRows,MASTERY_DAY_BASE,nextBreakThreshold,cappedSegmentEnd} from '../js/practice-timer.mjs';
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,allTopicsCleared,openEndedUnlocked,MASTERY_LEVEL_COUNTS,OPEN_ENDED_ID} from '../js/mastery-session.mjs';
-import {analyzeLearner,resolveFocusTopicIds,SYLLABUS_GAPS} from '../js/learner-insights.mjs';
+import {analyzeLearner,resolveFocusTopicIds,SYLLABUS_GAPS,coachingMissCount,isRecovered,isWeakRow,ACCURACY_OK,MISS_LOOKBACK_DAYS} from '../js/learner-insights.mjs';
 import {boostStepsForTopic,boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from '../js/coach-visuals.mjs';
 import {streakCoinMultiplier,coinsForCorrect,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,buyPet,buyPetSkin,realmStageView,companionStripView,COMPANION_BUILDING_LIMIT,REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,computeTrophies,heroTitle,XP_PER_CORRECT,COINS_DAY_CLEAR,COINS_BREAK_BONUS,REALM_PREVIEW_MS,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,eligibleDayClearCoinIds,ensureDefaultPet,DEFAULT_PET_ID} from '../js/rewards.mjs';
 import {activeSeason,shouldShowSeasonalBanner,dismissSeason,seasonDismissKey,SEASONS} from '../js/seasonal.mjs';
@@ -56,8 +56,8 @@ assert.ok(!/seasonStarArt/.test(appSource)||!/<img class="seasonStarArt"/.test(a
 assert.ok(/background:\s*transparent/.test(cssSource)&&!/seasonStarTray\{[^}]*linear-gradient\(180deg,#0d2a44/.test(cssSource),'Season star tray must be transparent/merged — no dark inset box');
 assert.ok(/\.companionPet\{[^}]*overflow:\s*visible/.test(cssSource),'companionPet must use overflow:visible so bubbles/bounce are not clipped');
 assert.ok(/petCelebrate|petEncourage/.test(cssSource),'Pet celebrate/encourage keyframes must exist');
-assert.equal(version.version,'0.24.2');
-assert.ok(swSource.includes('mathquest7-v0.24.2'),'Service worker CACHE must pin mathquest7-v0.24.2');
+assert.equal(version.version,'0.25.0');
+assert.ok(swSource.includes('mathquest7-v0.25.0'),'Service worker CACHE must pin mathquest7-v0.25.0');
 assert.ok(/\.lesson\s+\.small,\.boostStep\s+\.small,\.gifFrame\s+\.small/.test(cssSource)&&/\.boostStep\s+\.small[^{]*\{[^}]*color:\s*#23313c/.test(cssSource.replace(/\s+/g,' ')),'Light surfaces must override .small to dark readable text (#23313c)');
 const addBoost=boostStepsForTopic('ns_add');
 assert.ok(addBoost.every(s=>!/[→≥≤]/.test(s.caption)),'Integer-add boost captions must use plain words, not lone arrows/inequality symbols');
@@ -354,7 +354,30 @@ assert.ok(liveInsights.strengths.some(r=>r.topic.id==='ns_add'),'Strong Day 2 mu
 assert.ok(!liveInsights.strengths.some(r=>r.topic.id==='ns_signs'),'Weak Day 1 must not also count as a strength');
 assert.ok(!liveInsights.improvements.some(r=>r.topic.id==='ns_add'),'Strong Day 2 must not also count as an improvement');
 assert.ok(liveInsights.plan.some(p=>p.topicId==='ns_signs'),'Plan must target the weak day');
+assert.ok(liveInsights.plan.some(p=>p.topicId==='ns_signs'&&/Leaves this plan/.test(p.action)),'Plan actions must explain when the day graduates off the plan');
 assert.deepEqual(resolveFocusTopicIds(live,liveInsights).slice(0,1),['ns_signs'],'Auto open-ended focus must lead with the weakest practiced day');
+
+// Recovery: lifetime misses must not keep a cleared 80%+ day on the improvement plan.
+const recovered={mastery:{},cleared:{},attempts:{},errorLog:[],settings:{focusMode:'auto',focusTopicIds:[]}};
+for(const t of TOPICS){recovered.mastery[t.id]=0;recovered.cleared[t.id]=false;recovered.attempts[t.id]={n:0,c:0}}
+recovered.attempts.ns_signs={n:20,c:16};recovered.mastery.ns_signs=88;recovered.cleared.ns_signs=true;
+recovered.errorLog=Array.from({length:8},()=>({topic:'ns_signs',when:'2020-01-01T00:00:00.000Z'}));
+const recoveredInsights=analyzeLearner(recovered);
+const recoveredRow=recoveredInsights.rows.find(r=>r.topic.id==='ns_signs');
+assert.ok(isRecovered(recoveredRow),'Cleared day at 80%+ with good accuracy is recovered');
+assert.ok(!isWeakRow(recoveredRow),'Recovered day must not be weak');
+assert.ok(!recoveredInsights.improvements.some(r=>r.topic.id==='ns_signs'),'Recovered day must leave the improvement plan');
+assert.ok(recoveredInsights.strengths.some(r=>r.topic.id==='ns_signs'),'Recovered day should appear in strengths');
+assert.ok(recoveredInsights.plan.some(p=>p.topicId==null&&/no improvement-plan days/i.test(p.action)),'Empty improvements should show keep-sharpening plan, not pad fake weak days');
+assert.equal(coachingMissCount(recovered.errorLog,'ns_signs'),0,'Misses older than lookback must not count toward coaching weakness');
+assert.ok(ACCURACY_OK===0.7&&MISS_LOOKBACK_DAYS===14,'Recovery thresholds stay documented for product');
+
+// Recent undated misses still surface improvements; healthy non-weak days are not padded in.
+const mildOnly={mastery:{},cleared:{},attempts:{},errorLog:[],settings:{focusMode:'auto',focusTopicIds:[]}};
+for(const t of TOPICS){mildOnly.mastery[t.id]=0;mildOnly.cleared[t.id]=false;mildOnly.attempts[t.id]={n:0,c:0}}
+mildOnly.attempts.ns_add={n:12,c:11};mildOnly.mastery.ns_add=92;mildOnly.cleared.ns_add=true;
+const mildInsights=analyzeLearner(mildOnly);
+assert.equal(mildInsights.improvements.length,0,'Do not invent improvement rows when nothing is weak');
 
 const insightState={mastery:{},cleared:{},attempts:{},errorLog:[],settings:{focusMode:'blend',focusTopicIds:['g_circle']}};
 for(const t of TOPICS){insightState.mastery[t.id]=t.id==='ns_sub'?40:t.id==='ns_add'?92:70;insightState.cleared[t.id]=t.id!=='ns_sub';insightState.attempts[t.id]={n:10,c:t.id==='ns_sub'?3:9}}

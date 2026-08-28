@@ -10,74 +10,118 @@ export const SYLLABUS_GAPS=Object.freeze([
 ]);
 
 export const FOCUS_MODES=Object.freeze(['auto','blend','manual']);
-const MIN_PRACTICE_FOR_INSIGHT=2;
+/** Minimum attempts before a day can count as a strength. */
+export const MIN_PRACTICE_FOR_INSIGHT=2;
+/** Accuracy at/above this is “good enough” for recovery / strength. */
+export const ACCURACY_OK=0.7;
+/** Dated misses older than this (days) no longer force an improvement card. */
+export const MISS_LOOKBACK_DAYS=14;
+/** Undated errorLog rows: only the last N per topic count toward weakness. */
+export const UNDATED_MISS_CAP=5;
+
+const DAY_MS=864e5;
 
 function accuracy(attempts){
   const n=Number(attempts?.n||0),c=Number(attempts?.c||0);
   return n?c/n:null;
 }
 
-function missCount(errorLog,topicId){
+function lifetimeMissCount(errorLog,topicId){
   return (errorLog||[]).filter(e=>e.topic===topicId).length;
 }
 
-function topicScore(state,topic){
+/**
+ * Misses that still count toward coaching weakness.
+ * Dated entries: only within MISS_LOOKBACK_DAYS.
+ * Undated entries: only the last UNDATED_MISS_CAP for that topic.
+ */
+export function coachingMissCount(errorLog,topicId,now=Date.now()){
+  const hits=(errorLog||[]).filter(e=>e.topic===topicId);
+  const dated=[];
+  const undated=[];
+  for(const e of hits){
+    if(!e.when){undated.push(e);continue}
+    const t=Date.parse(e.when);
+    if(Number.isFinite(t)&&(now-t)<=MISS_LOOKBACK_DAYS*DAY_MS)dated.push(e);
+  }
+  return dated.length+undated.slice(-UNDATED_MISS_CAP).length;
+}
+
+function topicScore(state,topic,now=Date.now()){
   const m=Number(state.mastery?.[topic.id]||0);
   const a=state.attempts?.[topic.id]||{n:0,c:0};
   const acc=accuracy(a);
-  const misses=missCount(state.errorLog,topic.id);
+  const lifetimeMisses=lifetimeMissCount(state.errorLog,topic.id);
+  const misses=coachingMissCount(state.errorLog,topic.id,now);
   const cleared=state.cleared?.[topic.id]===true&&m>=PASS_MASTERY;
-  const practiced=a.n>0||misses>0||m>0;
+  const practiced=a.n>0||lifetimeMisses>0||m>0;
   const accPenalty=acc==null?0:(1-acc)*50;
   const missPenalty=Math.min(40,misses*4);
   const clearBonus=cleared?10:0;
   const strengthScore=m+(acc==null?0:acc*30)+clearBonus-missPenalty*0.25;
   const weakness=Math.max(0,100-m)+accPenalty+missPenalty+(cleared?0:12);
-  return{topic,mastery:m,attempts:a.n,correct:a.c,accuracy:acc,misses,cleared,practiced,strengthScore,weakness};
+  return{topic,mastery:m,attempts:a.n,correct:a.c,accuracy:acc,misses,lifetimeMisses,cleared,practiced,strengthScore,weakness};
 }
 
-function isStrongRow(row){
+/** Day has graduated: leave the improvement plan (GIF practice CTA goes off). */
+export function isRecovered(row){
+  if(!row?.practiced||row.attempts<MIN_PRACTICE_FOR_INSIGHT)return false;
+  if(!(row.cleared&&row.mastery>=PASS_MASTERY))return false;
+  return row.accuracy==null||row.accuracy>=ACCURACY_OK;
+}
+
+export function isStrongRow(row){
   if(!row.practiced||row.attempts<MIN_PRACTICE_FOR_INSIGHT)return false;
-  if(row.cleared&&row.mastery>=PASS_MASTERY&&(row.accuracy==null||row.accuracy>=0.7))return true;
-  return row.mastery>=72&&(row.accuracy==null||row.accuracy>=0.7)&&row.misses<=2;
+  if(isRecovered(row))return true;
+  return row.mastery>=72&&(row.accuracy==null||row.accuracy>=ACCURACY_OK)&&row.misses<=2;
 }
 
-function isWeakRow(row){
+export function isWeakRow(row){
   if(!row.practiced||row.attempts<1)return false;
+  // Explicit graduation — old lifetime misses must not keep the plan sticky.
+  if(isRecovered(row))return false;
   if(row.misses>=2)return true;
-  if(row.accuracy!=null&&row.accuracy<0.7)return true;
+  if(row.accuracy!=null&&row.accuracy<ACCURACY_OK)return true;
   if(row.mastery>0&&row.mastery<PASS_MASTERY)return true;
   return row.attempts>=MIN_PRACTICE_FOR_INSIGHT&&row.mastery<60;
 }
 
+function planActionFor(row){
+  const day=TOPICS.indexOf(row.topic)+1;
+  const accPct=row.accuracy==null?'no accuracy yet':`${Math.round(row.accuracy*100)}% accuracy`;
+  const clearHint=`Leaves this plan at at least ${PASS_MASTERY}% mastery, about ${Math.round(ACCURACY_OK*100)}% accuracy, and the Exit Ticket cleared.`;
+  if(row.cleared){
+    return`Run mastery replay on Day ${day} (${row.topic.title}) — emphasize multi-step + NC word items (${accPct}, ${row.misses} recent misses). ${clearHint}`;
+  }
+  return`Practice Day ${day} (${row.topic.title}) to at least ${PASS_MASTERY}% mastery and pass the Exit Ticket. Now ${row.mastery}% mastery, ${accPct}, ${row.misses} recent misses. ${clearHint}`;
+}
+
 /** Build strengths, improvements, and a coaching plan from local progress. */
-export function analyzeLearner(state,{strengthCount=3,improveCount=4}={}){
-  const rows=TOPICS.map(t=>topicScore(state,t));
+export function analyzeLearner(state,{strengthCount=3,improveCount=4,now=Date.now()}={}){
+  const rows=TOPICS.map(t=>topicScore(state,t,now));
   const practiced=rows.filter(r=>r.practiced);
   const strengthCandidates=practiced.filter(isStrongRow).sort((a,b)=>b.strengthScore-a.strengthScore||b.mastery-a.mastery);
   const strengths=strengthCandidates.slice(0,strengthCount);
   const strengthIds=new Set(strengths.map(r=>r.topic.id));
-  const improvementCandidates=practiced.filter(r=>isWeakRow(r)&&!strengthIds.has(r.topic.id)).sort((a,b)=>b.weakness-a.weakness||a.mastery-b.mastery);
-  // If nothing qualifies as weak but practice exists, surface lowest strengthScore practiced rows not already strengths.
-  const improvements=(improvementCandidates.length?improvementCandidates:practiced.filter(r=>!strengthIds.has(r.topic.id)).sort((a,b)=>b.weakness-a.weakness)).slice(0,improveCount);
+  // Only real weak days — do not pad the plan with “least strong” healthy days.
+  const improvements=practiced
+    .filter(r=>isWeakRow(r)&&!strengthIds.has(r.topic.id))
+    .sort((a,b)=>b.weakness-a.weakness||a.mastery-b.mastery)
+    .slice(0,improveCount);
 
   const plan=[];
   for(const row of improvements){
-    const day=TOPICS.indexOf(row.topic)+1;
-    const accPct=row.accuracy==null?'no accuracy yet':`${Math.round(row.accuracy*100)}% accuracy`;
     plan.push({
       topicId:row.topic.id,
-      day,
+      day:TOPICS.indexOf(row.topic)+1,
       title:row.topic.title,
-      action:row.cleared
-        ?`Run mastery replay on Day ${day} (${row.topic.title}) — emphasize multi-step + NC word items (${accPct}, ${row.misses} logged misses).`
-        :`Practice Day ${day} (${row.topic.title}) to at least ${PASS_MASTERY}% mastery and pass the Exit Ticket. Now ${row.mastery}% mastery, ${accPct}, ${row.misses} misses.`
+      action:planActionFor(row)
     });
   }
   if(!practiced.length){
     plan.push({topicId:null,day:null,title:'Get started',action:'Start today’s lesson. Strengths, improvements, and fine-tuning focus appear after real practice and mistakes.'});
   }else if(!improvements.length){
-    plan.push({topicId:null,day:null,title:'Keep sharpening',action:'Nice work — no major weak spots yet. Use mastery replay or Open-Ended Mastery to keep skills sharp.'});
+    plan.push({topicId:null,day:null,title:'Keep sharpening',action:'Nice work — no improvement-plan days right now. Use mastery replay or Open-Ended Mastery to keep skills sharp. A day returns here only if recent accuracy or mastery slips.'});
   }
 
   const autoFocusIds=improvements.map(r=>r.topic.id);

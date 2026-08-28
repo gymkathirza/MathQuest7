@@ -180,3 +180,5 @@ Optional publishable libraries live under `packages/` (e.g. `@gymkathirza/mathqu
 ## Handoff philosophy
 
 Future agents should be able to begin from the repository alone. Read `AGENTS.md` first, then `docs/STATE.md`, followed by the detailed curriculum/privacy/versioning contracts in `docs/`.
+
+- 2026-08-28: Coaching improvement plan recovers — day leaves plan when Exit-cleared at ≥80% mastery with ~70% accuracy; weakness uses 14-day dated miss window + last-5 undated cap (not lifetime sticky); do not pad improvements with healthy days (`0.25.0` coach-plan-recovery).
