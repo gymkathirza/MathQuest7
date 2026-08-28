@@ -8,7 +8,7 @@ import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayC
 import {shouldShowSeasonalBanner,dismissSeason,prefersReducedMotion} from './seasonal.mjs';
 const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
-const PET_REACT_MS=1600;
+const PET_REACT_MS=1800;
 const PHASE_PET_REACT={warmup:'think',learn:'think',guided:'nudge',practice:'idle',review:'cheer',exit:'cheer'};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
 function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[DEFAULT_PET_ID],petSkins:[],activePet:DEFAULT_PET_ID,activePetSkin:null,breaksCompleted:0,parentCoinAwards:[]}}
@@ -93,8 +93,7 @@ function renderSeasonalBanner(){
   if(!season){box.classList.add('hidden');box.innerHTML='';stopStarShower();return}
   box.classList.remove('hidden');
   const cheers=season.cheers.map((c,i)=>`<div class="seasonCheer ${i===0?'on':''}" data-cheer="${i}">${esc(c)}</div>`).join('');
-  const starArt=new URL('../assets/seasonal/star-row.png',import.meta.url).href;
-  box.innerHTML=`<div class="seasonBannerInner"><div class="seasonBadge">🎒 Season</div><h2>${esc(season.headline)}</h2><p class="small">${esc(season.blurb)}</p><div class="seasonCheerTrack" id="seasonCheerTrack">${cheers}</div><div class="seasonStarTray" id="seasonStarTray" aria-hidden="true"><img class="seasonStarArt" src="${starArt}" alt=""><div class="seasonStarRow">🌟⭐✨🌟⭐✨🌟⭐✨🌟⭐✨🌟⭐✨</div></div><button type="button" class="btn alt" id="dismissSeasonBtn">Dismiss for now</button></div>`;
+  box.innerHTML=`<div class="seasonBannerInner"><div class="seasonBadge">🎒 Season</div><h2>${esc(season.headline)}</h2><p class="small">${esc(season.blurb)}</p><div class="seasonCheerTrack" id="seasonCheerTrack">${cheers}</div><div class="seasonStarTray" id="seasonStarTray" aria-hidden="true"><div class="seasonStarRow">🌟⭐✨🌟⭐✨🌟⭐✨🌟⭐✨🌟⭐✨🌟⭐✨</div></div><button type="button" class="btn alt" id="dismissSeasonBtn">Dismiss for now</button></div>`;
   const dismiss=$('dismissSeasonBtn');
   if(dismiss)dismiss.onclick=()=>{dismissSeason(season.id);renderSeasonalBanner();showToast('Banner hidden for this season. Keep practicing!',3500)};
   let idx=0;

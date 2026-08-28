@@ -34,6 +34,8 @@ assert.ok(swSource.includes('mastery-session.mjs'),'Service worker must cache ma
 assert.ok(swSource.includes('learner-insights.mjs'),'Service worker must cache learner-insights.mjs');
 assert.ok(swSource.includes('coach-visuals.mjs'),'Service worker must cache coach-visuals.mjs');
 const indexSource=readFileSync(join(ROOT,'index.html'),'utf8');
+const cssSource=readFileSync(join(ROOT,'css','app.css'),'utf8');
+const version=JSON.parse(readFileSync(join(ROOT,'version.json'),'utf8'));
 assert.ok(indexSource.includes('masteryReplayTarget'),'Parent panel must expose mastery replay target control');
 assert.ok(indexSource.includes('strengths')&&indexSource.includes('improvements')&&indexSource.includes('improvePlan'),'Parent panel must show strengths, improvements, and plan');
 assert.ok(indexSource.includes('masteryReview'),'Parent panel must include mastery review');
@@ -49,6 +51,13 @@ assert.ok(/from ['"]\.\/seasonal\.mjs['"]/.test(appSource),'UI must import seaso
 assert.ok(/renderSeasonalBanner|seasonStarTray|seasonStarRow|petReact|applyPetReact|ensureDefaultPet/.test(appSource),'UI must render banner stars and pet reactions with default pet');
 assert.ok(!indexSource.includes('id="starShower"'),'Full-page starShower mount must be removed');
 assert.ok(/answerReact/.test(appSource),'Practice answers must pass answerReact into setPhase so pet reaction survives save/re-render');
+assert.ok(/pendingPetReact/.test(appSource),'Pet reactions must queue via pendingPetReact across save/re-render');
+assert.ok(!/seasonStarArt/.test(appSource)||!/<img class="seasonStarArt"/.test(appSource),'Banner must not stack dark star-row PNG beside emoji row');
+assert.ok(/background:\s*transparent/.test(cssSource)&&!/seasonStarTray\{[^}]*linear-gradient\(180deg,#0d2a44/.test(cssSource),'Season star tray must be transparent/merged — no dark inset box');
+assert.ok(/\.companionPet\{[^}]*overflow:\s*visible/.test(cssSource),'companionPet must use overflow:visible so bubbles/bounce are not clipped');
+assert.ok(/petCelebrate|petEncourage/.test(cssSource),'Pet celebrate/encourage keyframes must exist');
+assert.equal(version.version,'0.23.2');
+assert.ok(swSource.includes('mathquest7-v0.23.2'),'Service worker CACHE must pin mathquest7-v0.23.2');
 assert.ok(indexSource.includes('seasonalBanner'),'Home must include seasonal banner mount');
 assert.ok(swSource.includes('assets/seasonal/'),'Service worker must cache seasonal assets');
 assert.equal(DEFAULT_PET_ID,'fox');
