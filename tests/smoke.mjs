@@ -56,9 +56,16 @@ assert.ok(!/seasonStarArt/.test(appSource)||!/<img class="seasonStarArt"/.test(a
 assert.ok(/background:\s*transparent/.test(cssSource)&&!/seasonStarTray\{[^}]*linear-gradient\(180deg,#0d2a44/.test(cssSource),'Season star tray must be transparent/merged — no dark inset box');
 assert.ok(/\.companionPet\{[^}]*overflow:\s*visible/.test(cssSource),'companionPet must use overflow:visible so bubbles/bounce are not clipped');
 assert.ok(/petCelebrate|petEncourage/.test(cssSource),'Pet celebrate/encourage keyframes must exist');
-assert.equal(version.version,'0.24.1');
-assert.ok(swSource.includes('mathquest7-v0.24.1'),'Service worker CACHE must pin mathquest7-v0.24.1');
+assert.equal(version.version,'0.24.2');
+assert.ok(swSource.includes('mathquest7-v0.24.2'),'Service worker CACHE must pin mathquest7-v0.24.2');
 assert.ok(/\.lesson\s+\.small,\.boostStep\s+\.small,\.gifFrame\s+\.small/.test(cssSource)&&/\.boostStep\s+\.small[^{]*\{[^}]*color:\s*#23313c/.test(cssSource.replace(/\s+/g,' ')),'Light surfaces must override .small to dark readable text (#23313c)');
+const addBoost=boostStepsForTopic('ns_add');
+assert.ok(addBoost.every(s=>!/[→≥≤]/.test(s.caption)),'Integer-add boost captions must use plain words, not lone arrows/inequality symbols');
+assert.ok(/slide right|number line/i.test(addBoost[0].caption)&&/absolute value|farther from zero/i.test(addBoost[1].caption),'Day 2 boost steps must explain direction and absolute value in kid-friendly English');
+assert.ok(TOPICS.every(t=>boostStepsForTopic(t.id).every(s=>!/[→≥≤]/.test(s.caption))),'All GIF boost captions must avoid lone → / ≥ / ≤');
+assert.ok(TOPICS.some(t=>t.id==='ns_add'&&!/→/.test(t.teach)&&/slide RIGHT|farther from zero|absolute value/i.test(t.teach)),'Adding Integers teach HTML must use plain English captions');
+const planProbe=analyzeLearner({mastery:{ns_add:40},attempts:{ns_add:{n:8,c:3}},cleared:{},missLog:{ns_add:[{q:'x',a:'1',level:'standard'}]},settings:{}});
+assert.ok(planProbe.plan.some(p=>/at least 80%/.test(p.action)&&!/≥/.test(p.action)),'Coaching plan must say “at least 80%” instead of bare ≥');
 assert.ok(indexSource.includes('seasonalBanner'),'Home must include seasonal banner mount');
 // Accessibility / ARIA contract (native-first; see .cursor/rules/mathquest-accessibility.mdc)
 assert.ok(/<html[^>]*\slang=["']en["']/.test(indexSource),'Document must declare lang=en');
@@ -282,7 +289,7 @@ assert.equal(PASS_MASTERY,80,'Mastery unlock must remain 80%');
 assert.equal(CORE_DAILY_COUNT,10,'Core daily benchmark must contain 10 problems');
 assert.deepEqual(LEVEL_COUNTS,{standard:3,complex:4,word:3},'Daily tier mix must remain 3/4/3');
 assert.ok(TOPICS.some(t=>t.id==='ns_sub'&&t.teach.includes('KCC')),'KCC lesson missing');
-assert.ok(TOPICS.some(t=>t.id==='ns_add'&&/greater absolute value|signs differ/i.test(t.teach)),'Integer different-sign strategy missing');
+assert.ok(TOPICS.some(t=>t.id==='ns_add'&&/absolute value|signs differ|farther from zero/i.test(t.teach)),'Integer different-sign strategy missing');
 
 function validateProblem(p,context){
   assert.ok(p.q&&String(p.q).length>3,`Bad question ${context}`);
