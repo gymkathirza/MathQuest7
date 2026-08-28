@@ -27,7 +27,7 @@ Primary learner: a general student entering Grade 7, starting from accessible pr
 The experience should:
 
 - teach before testing
-- explain ideas in plain language
+- explain ideas in plain language; symbols alone are not enough — prefer clear Grade 7 words, or keep a symbol with its meaning in parentheses (e.g. absolute value = distance from zero; ≥ means at least)
 - use visuals, animations, manipulatives, and touch interactions
 - allow guided retry until the learner understands
 - celebrate correct work without making mistakes feel punitive

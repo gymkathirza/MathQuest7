@@ -71,7 +71,7 @@ export function analyzeLearner(state,{strengthCount=3,improveCount=4}={}){
       title:row.topic.title,
       action:row.cleared
         ?`Run mastery replay on Day ${day} (${row.topic.title}) — emphasize multi-step + NC word items (${accPct}, ${row.misses} logged misses).`
-        :`Practice Day ${day} (${row.topic.title}) to ≥${PASS_MASTERY}% mastery and pass the Exit Ticket. Now ${row.mastery}% · ${accPct} · ${row.misses} misses.`
+        :`Practice Day ${day} (${row.topic.title}) to at least ${PASS_MASTERY}% mastery and pass the Exit Ticket. Now ${row.mastery}% mastery, ${accPct}, ${row.misses} misses.`
     });
   }
   if(!practiced.length){

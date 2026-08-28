@@ -7,7 +7,7 @@ import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-
 import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,ensureDefaultPet,DEFAULT_PET_ID} from './rewards.mjs';
 import {shouldShowSeasonalBanner,dismissSeason,prefersReducedMotion} from './seasonal.mjs';
 const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
-const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
+const LEVEL_META={standard:{tag:'Level 1: Standard Practice',emoji:'🟢'},complex:{tag:'Level 2: Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3: NC Real-World Word Problem',emoji:'🔴'}};
 const PET_REACT_MS=1800;
 const PHASE_PET_REACT={warmup:'think',learn:'think',guided:'nudge',practice:'idle',review:'cheer',exit:'cheer'};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
