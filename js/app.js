@@ -12,7 +12,8 @@ const PET_REACT_MS=1800;
 const PHASE_PET_REACT={warmup:'think',learn:'think',guided:'nudge',practice:'idle',review:'cheer',exit:'cheer'};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
 function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[DEFAULT_PET_ID],petSkins:[],activePet:DEFAULT_PET_ID,activePetSkin:null,breaksCompleted:0,parentCoinAwards:[]}}
-let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,petReactTimer=null,pendingPetReact=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null;
+let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,petReactTimer=null,pendingPetReact=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null,breakPrevFocus=null;
+const PET_REACT_STATUS={celebrate:'Companion celebrates your success',correct:'Companion celebrates your success',encourage:'Companion encourages you to try again',wrong:'Companion encourages you to try again',think:'Companion is thinking with you',nudge:'Companion nudges you to try a tile',cheer:'Companion cheers you on',idle:'Companion is ready'};
 
 function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.parentCoinAwards=Array.isArray(s.parentCoinAwards)?s.parentCoinAwards:[];s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];ensureDefaultPet(s);if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome())renderRealm();renderCompanionStrip()}
@@ -31,18 +32,19 @@ function renderCompanionStrip(){
   const el=$('realmCompanion');if(!el)return;
   const onLearn=!$('learn').classList.contains('hidden');
   const home=onHome();
+  const prevStatus=$('companionStatus')?.textContent||'';
   // Practice: owned only. Home: owned + optional Free Preview ghosts.
   if(!onLearn&&!home){el.classList.add('hidden');el.innerHTML='';el.setAttribute('aria-hidden','true');return}
   const view=companionStripView(S,home?realmPreview:null);
   if(!view.visible){el.classList.add('hidden');el.innerHTML='';el.setAttribute('aria-hidden','true');return}
-  el.classList.remove('hidden');el.setAttribute('aria-hidden','false');
+  el.classList.remove('hidden');el.removeAttribute('aria-hidden');
   if(view.isPreview)el.classList.add('previewing');else el.classList.remove('previewing');
-  const pet=view.pet?`<div class="companionPet${view.petGhost?' ghost pulse':''}" title="${esc(view.pet.name)}">${artMarkup(view.pet)}<span class="petReactBubble" hidden></span></div>`:'';
-  const builds=view.buildings.map(b=>`<div class="companionPlot" title="${esc(b.name)}">${artMarkup(b)}</div>`).join('');
-  const ghost=view.ghostBuilding?`<div class="companionPlot ghost pulse" title="Free preview">${artMarkup(view.ghostBuilding)}</div>`:'';
-  const more=view.overflow?`<div class="companionMore">+${view.overflow}</div>`:'';
-  const banner=view.previewLabel?`<div class="companionPreviewLabel">${esc(view.previewLabel)} · free</div>`:'';
-  el.innerHTML=`<div class="companionInner">${banner}${pet}${builds}${ghost}${more}</div>`;
+  const pet=view.pet?`<div class="companionPet${view.petGhost?' ghost pulse':''}" title="${esc(view.pet.name)}" aria-hidden="true">${artMarkup(view.pet)}<span class="petReactBubble" hidden></span></div>`:'';
+  const builds=view.buildings.map(b=>`<div class="companionPlot" title="${esc(b.name)}" aria-hidden="true">${artMarkup(b)}</div>`).join('');
+  const ghost=view.ghostBuilding?`<div class="companionPlot ghost pulse" title="Free preview" aria-hidden="true">${artMarkup(view.ghostBuilding)}</div>`:'';
+  const more=view.overflow?`<div class="companionMore" aria-hidden="true">+${view.overflow}</div>`:'';
+  const banner=view.previewLabel?`<div class="companionPreviewLabel" aria-hidden="true">${esc(view.previewLabel)} · free</div>`:'';
+  el.innerHTML=`<div id="companionStatus" class="srOnly" aria-live="polite">${esc(prevStatus)}</div><div class="companionInner" aria-hidden="true">${banner}${pet}${builds}${ghost}${more}</div>`;
   bindArtFallbacks(el);
   if(pendingPetReact){
     const kind=pendingPetReact;pendingPetReact=null;
@@ -59,6 +61,8 @@ function petReact(kind='idle'){
   }
 }
 function applyPetReact(kind='idle'){
+  const status=$('companionStatus');
+  if(status)status.textContent=PET_REACT_STATUS[kind]||PET_REACT_STATUS.idle;
   const pet=$('realmCompanion')?.querySelector('.companionPet');
   if(!pet)return;
   const classes=['react-celebrate','react-encourage','react-think','react-nudge','react-cheer','react-idle'];
@@ -178,9 +182,10 @@ ${openEndedUnlocked(S)?`<button class="btn" id="coachOpenEnded">${OPEN_ENDED_ICO
 }
 function renderMap(){
   $('weeks').innerHTML=WEEKS.map(w=>`<div class="road"><b>Week ${w.week}: ${w.title}</b><small>${w.standard}</small><p>${w.desc}</p></div>`).join('');
-  let html=TOPICS.map((t,i)=>{const u=topicUnlocked(S,i),done=S.cleared[t.id]&&S.mastery[t.id]>=PASS_MASTERY;const tip=!u?`🔒 Locked — reach ${PASS_MASTERY}% mastery and pass the Exit Ticket on Day ${i} to unlock this day`:done?`✓ Completed at ${S.mastery[t.id]}% mastery — click for advanced mastery replay`:i===S.day?`Today's lesson — click to continue`:`Click to start Day ${i+1}: ${t.title}`;return`<div class="day ${done?'done':''} ${i===S.day&&sessionMode!=='open'?'current':''} ${u?'clickable':'locked'}" data-i="${i}" data-tip="${esc(tip)}" ${u?'role="button" tabindex="0"':''}>${u?t.icon:'🔒'} Day ${i+1}<br><b>${t.title}</b><br>${S.mastery[t.id]}% ${done?'✓':''}</div>`}).join('');
+  let html=TOPICS.map((t,i)=>{const u=topicUnlocked(S,i),done=S.cleared[t.id]&&S.mastery[t.id]>=PASS_MASTERY;const tip=!u?`Locked — reach ${PASS_MASTERY}% mastery and pass the Exit Ticket on Day ${i} to unlock this day`:done?`Completed at ${S.mastery[t.id]}% mastery — open advanced mastery replay`:i===S.day?`Today's lesson — continue Day ${i+1}: ${t.title}`:`Start Day ${i+1}: ${t.title}`;return`<div class="day ${done?'done':''} ${i===S.day&&sessionMode!=='open'?'current':''} ${u?'clickable':'locked'}" data-i="${i}" data-tip="${esc(tip)}" ${u?`role="button" tabindex="0" aria-label="${esc(tip)}"`:`aria-disabled="true"`}>${u?t.icon:'🔒'} Day ${i+1}<br><b>${t.title}</b><br>${S.mastery[t.id]}% ${done?'✓':''}</div>`}).join('');
   const openOn=openEndedUnlocked(S);
-  html+=`<div class="day ${openOn?'done clickable':'locked'} ${sessionMode==='open'?'current':''}" data-open="1" data-tip="${openOn?'♾️ Open-ended mastery — fine-tune improvement areas with advanced mixed practice':'🔒 Clears after all 20 days are completed'}" ${openOn?'role="button" tabindex="0"':''}>${openOn?OPEN_ENDED_ICON:'🔒'} Beyond Day 20<br><b>${OPEN_ENDED_TITLE}</b><br>${openOn?`${S.attempts[OPEN_ENDED_ID].n} practiced`:'Complete 20 days'}</div>`;
+  const openTip=openOn?'Open-ended mastery — fine-tune improvement areas with advanced mixed practice':'Locked — clears after all 20 days are completed';
+  html+=`<div class="day ${openOn?'done clickable':'locked'} ${sessionMode==='open'?'current':''}" data-open="1" data-tip="${esc(openTip)}" ${openOn?`role="button" tabindex="0" aria-label="${esc(openTip)}"`:`aria-disabled="true"`}>${openOn?OPEN_ENDED_ICON:'🔒'} Beyond Day 20<br><b>${OPEN_ENDED_TITLE}</b><br>${openOn?`${S.attempts[OPEN_ENDED_ID].n} practiced`:'Complete 20 days'}</div>`;
   $('days').innerHTML=html;
   $('days').querySelectorAll('.day.clickable[data-i]').forEach(el=>{const i=Number(el.dataset.i);el.onclick=()=>startLesson(i);el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();startLesson(i)}}});
   const openEl=$('days').querySelector('.day.clickable[data-open]');if(openEl){openEl.onclick=()=>startOpenEnded();openEl.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();startOpenEnded()}}}
@@ -298,7 +303,27 @@ function noteActivity(){lastActiveAt=Date.now();if(!onBreak&&!onParentScreen()&&
 function startClock(){clearInterval(timer);const tick=()=>{syncPracticeDay();if(runningSince!=null&&shouldIdlePause(lastActiveAt,Date.now(),IDLE_PAUSE_MS))pausePractice();const m=elapsedMin();$('sessionClock').textContent=`⏱ ${m} min`;$('sessionClock').dataset.tip=`Cool, you have about ${m} minute${m===1?'':'s'} of active practice today..! The timer pauses on breaks, when the tab is hidden, or after 5 minutes away. Keep going — and take healthy screen breaks!`;if(sessionMode==='open'){const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}renderTop();if(!onBreak&&m>=S.nextBreakMin)triggerBreak(m)};tick();timer=setInterval(tick,1000)}
 function showToast(msg,ms=9000){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.classList.add('hidden'),400)},ms)}
 function triggerBreak(m){onBreak=true;breakBonusAwarded=false;breakEndsAt=null;pausePractice();showToast(`⏸️ Cool — you've practiced for about ${m} minutes! 👏 Time to stand up, stretch, hydrate, and rest your eyes (look ~20 ft away for 20 sec). Learning should be fun — let's take a healthy screen break!`,12000);openBreak(m)}
-function openBreak(m){const ov=$('breakOverlay');ov.classList.remove('hidden');$('breakChoose').classList.remove('hidden');$('breakCountdown').classList.add('hidden');$('breakDone').classList.add('hidden');$('breakTitle').textContent='🧘 Time for a screen break!';$('breakMsg').textContent=`You've been practicing for about ${m} minutes — awesome focus! Screens are for learning, not for sitting too long. Pick a break length below. The screen will rest so you can move around, stretch, drink water, and look far away.`}
+function breakFocusables(){const ov=$('breakOverlay');if(!ov||ov.classList.contains('hidden'))return[];return[...ov.querySelectorAll('button:not([disabled])')].filter(b=>!b.closest('.hidden'))}
+function onBreakKeydown(e){
+  if(!$('breakOverlay')||$('breakOverlay').classList.contains('hidden'))return;
+  if(e.key!=='Tab')return;
+  const list=breakFocusables();if(list.length<1)return;
+  const first=list[0],last=list[list.length-1];
+  if(e.shiftKey&&document.activeElement===first){e.preventDefault();last.focus()}
+  else if(!e.shiftKey&&document.activeElement===last){e.preventDefault();first.focus()}
+}
+function openBreak(m){
+  breakPrevFocus=document.activeElement instanceof HTMLElement?document.activeElement:null;
+  const ov=$('breakOverlay');ov.classList.remove('hidden');$('breakChoose').classList.remove('hidden');$('breakCountdown').classList.add('hidden');$('breakDone').classList.add('hidden');$('breakTitle').textContent='🧘 Time for a screen break!';$('breakMsg').textContent=`You've been practicing for about ${m} minutes — awesome focus! Screens are for learning, not for sitting too long. Pick a break length below. The screen will rest so you can move around, stretch, drink water, and look far away.`;
+  document.addEventListener('keydown',onBreakKeydown,true);
+  requestAnimationFrame(()=>{const f=breakFocusables()[0];if(f)f.focus()});
+}
+function closeBreakOverlay(){
+  $('breakOverlay').classList.add('hidden');$('breakDone').classList.add('hidden');
+  document.removeEventListener('keydown',onBreakKeydown,true);
+  const restore=breakPrevFocus;breakPrevFocus=null;
+  if(restore&&typeof restore.focus==='function')restore.focus();
+}
 function renderBreakClock(){
   if(breakEndsAt==null)return;
   const left=Math.max(0,Math.ceil((breakEndsAt-Date.now())/1000));
@@ -330,17 +355,22 @@ function endBreak(){
   showToast(`🧘 Break complete — +${COINS_BREAK_BONUS} coins!`,5000);
 }
 function setPhase(p,opts={}){
-  for(const x of PHASES)$('p'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===p);
+  for(const x of PHASES){
+    const el=$('p'+x[0].toUpperCase()+x.slice(1));
+    const on=x===p;
+    el.classList.toggle('on',on);
+    if(on)el.setAttribute('aria-current','step');else el.removeAttribute('aria-current');
+  }
   if(sessionMode==='open'){$('topicName').textContent=`${OPEN_ENDED_ICON} ${OPEN_ENDED_TITLE}`;const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}
   else{$('topicName').textContent=`${sessionMode==='replay'?'♻️ Mastery · ':''}Day ${current+1}: ${TOPICS[current].title}`;$('masteryPill').textContent=`${S.mastery[TOPICS[current].id]}% mastery`}
   renderCompanionStrip();
   if(opts.answerReact)petReact(opts.answerReact);
   else petReact(PHASE_PET_REACT[p]||'idle');
 }
-function button(label,fn,cls='btn'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=fn;return b}
+function button(label,fn,cls='btn'){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.onclick=fn;return b}
 function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{const ok=a===w.a;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;petReact(ok?'celebrate':'encourage');$('feedback').append(button('Continue to today’s story →',showLearn))})}
 function showLearn(){setPhase('learn');const t=TOPICS[current];$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">📖 STORY</p><h2>${t.story}</h2>${t.teach}`;$('interaction').append(button('🎬 Need a slower GIF walkthrough →',showBoostPath,'btn alt'));$('interaction').append(button('I watched & understand — guided practice →',showGuided))}
-function showGuided(){setPhase('guided');const g=TOPICS[current].guided;$('lessonBody').innerHTML=`<h2>🖐️ Guided Practice</h2><p class="concept">${g.prompt}</p><p class="small">Drag a tile into the target, or tap a tile on iPad.</p>`;$('feedback').innerHTML='';$('interaction').innerHTML=`<div class="tokens">${g.tokens.map(x=>`<div class="token" draggable="true" data-v="${esc(x)}">${x}</div>`).join('')}</div><div class="targets"><div id="dropTarget" class="target">DROP / TAP ANSWER</div></div>`;const check=v=>{if(v===g.answer){$('dropTarget').textContent=v;$('feedback').innerHTML=`<div class="feedback good">✨ Correct. ${g.explain}</div><div class="celebrate">⭐ ✅ 🎉</div>`;petReact('celebrate');$('feedback').append(button('Start independent practice →',showPractice))}else{$('feedback').innerHTML=`<div class="feedback bad">🌱 Not yet. ${g.explain} Try again until you make it right.</div><div class="retry">🤔 ↩️ 💡</div>`;petReact('encourage')}};document.querySelectorAll('.token').forEach(el=>{el.onclick=()=>check(el.dataset.v);el.ondragstart=e=>e.dataTransfer.setData('text',el.dataset.v)});$('dropTarget').ondragover=e=>e.preventDefault();$('dropTarget').ondrop=e=>{e.preventDefault();check(e.dataTransfer.getData('text'))}}
+function showGuided(){setPhase('guided');const g=TOPICS[current].guided;$('lessonBody').innerHTML=`<h2>🖐️ Guided Practice</h2><p class="concept">${g.prompt}</p><p class="small">Drag a tile into the target, or tap / press a tile (keyboard Enter or Space).</p>`;$('feedback').innerHTML='';$('interaction').innerHTML=`<div class="tokens" role="group" aria-label="Answer tiles">${g.tokens.map(x=>`<button type="button" class="token" draggable="true" data-v="${esc(x)}" aria-label="Answer ${esc(x)}">${x}</button>`).join('')}</div><div class="targets"><div id="dropTarget" class="target" aria-label="Drop or tap answer target">DROP / TAP ANSWER</div></div>`;const check=v=>{if(v===g.answer){$('dropTarget').textContent=v;$('feedback').innerHTML=`<div class="feedback good">✨ Correct. ${g.explain}</div><div class="celebrate">⭐ ✅ 🎉</div>`;petReact('celebrate');$('feedback').append(button('Start independent practice →',showPractice))}else{$('feedback').innerHTML=`<div class="feedback bad">🌱 Not yet. ${g.explain} Try again until you make it right.</div><div class="retry">🤔 ↩️ 💡</div>`;petReact('encourage')}};document.querySelectorAll('.token').forEach(el=>{el.onclick=()=>check(el.dataset.v);el.ondragstart=e=>e.dataTransfer.setData('text',el.dataset.v)});$('dropTarget').ondragover=e=>e.preventDefault();$('dropTarget').ondrop=e=>{e.preventDefault();check(e.dataTransfer.getData('text'))}}
 function showMasteryRecap(){setPhase('learn');const t=TOPICS[current],goal=practiceGoal();$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">♻️ MASTERY REPLAY · Union County / NC Grade 7 retention</p><h2>${t.icon} Day ${current+1} Recap: ${t.title}</h2><p class="concept">${t.story}</p>${t.teach}<p class="small">Parent/Admin mastery target for completed days: <b>${goalLabel(goal)}</b> questions this visit (advanced 2·4·4 mix). Keep skills sharp without redoing the unlock gate.</p>`;$('interaction').append(button('🎬 GIF boost steps first →',showBoostPath,'btn alt'));$('interaction').append(button('Start advanced mastery practice →',showPractice))}
 function showOpenRecap(){
   setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';
@@ -363,7 +393,7 @@ function showPractice(){
 function benchTitle(){if(bench.kind==='open')return`${OPEN_ENDED_ICON} Open-Ended Mastery — Mixed 20-Day Challenge`;if(bench.kind==='replay')return`♻️ Advanced Mastery Replay — Day ${current+1}`;return`⚔️ Daily Benchmark — 10 Questions`}
 function benchMixNote(){if(bench.kind==='learn')return`3 standard · 4 multi-step · 3 NC real-world • ✏️ No calculator`;return`${MASTERY_LEVEL_COUNTS.standard} standard · ${MASTERY_LEVEL_COUNTS.complex} multi-step · ${MASTERY_LEVEL_COUNTS.word} NC real-world (advanced retention mix) • ✏️ No calculator`}
 function showBenchQuestion(){setPhase('practice');const id=activeTopicId();q=bench.items[bench.idx];const meta=LEVEL_META[q.level],target=goalLabel(practiceGoal());const topicHint=q.topicId?TOPICS.find(t=>t.id===q.topicId):null;$('lessonBody').innerHTML=`<h2>${benchTitle()}</h2><p class="small">${benchMixNote()}</p><p class="benchtag ${q.level}">${meta.emoji} ${meta.tag}</p><p class="small">Question ${bench.idx+1} of ${CORE_DAILY_COUNT} • Session practice ${S.attempts[id].n-sessionPracticeStart}/${target} • Lifetime ${S.attempts[id].n} • Mastery ${sessionMode==='open'?'mixed':S.mastery[id]+'%'}${topicHint?` • From Day ${TOPICS.indexOf(topicHint)+1}: ${esc(topicHint.title)}`:''}</p>${q.location?`<p class="small">📍 ${esc(q.location)}, NC scenario</p>`:''}<h3 class="qtext">${q.q}</h3>${q.strategy?`<p class="small">🧭 Strategy: ${esc(q.strategy)}</p>`:''}`;$('feedback').innerHTML='';renderAnswers(q,benchCheck)}
-function renderAnswers(problem,onPick){$('interaction').innerHTML='<div class="answers"></div>';const box=$('interaction').firstChild;problem.choices.forEach(v=>box.append(button(v,()=>onPick(String(v)),'answer')))}
+function renderAnswers(problem,onPick){$('interaction').innerHTML='<div class="answers" role="group" aria-label="Answer choices"></div>';const box=$('interaction').firstChild;problem.choices.forEach(v=>box.append(button(v,()=>onPick(String(v)),'answer')))}
 function creditAttempt(id,ok,problem){
   const a=S.attempts[id];a.n++;S.total++;
   if(ok){
@@ -372,7 +402,7 @@ function creditAttempt(id,ok,problem){
     S.mastery[id]=updateMastery(S.mastery[id],true);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],true);
     const multNote=reward.mult>1?` · streak ×${reward.mult}`:'';
     $('feedback').innerHTML=`<div class="feedback good">🎉 Correct! ${problem.explain} +${reward.xp} XP · +${reward.coins} 🪙${multNote}</div><div class="celebrate">🌟 🎉 ✅</div>`;
-  }else{S.streak=0;S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});$('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div><div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts"><button data-e="Sign">Sign</button><button data-e="Operation">Operation</button><button data-e="Arithmetic">Arithmetic</button><button data-e="Not sure">Not sure</button></div>`;document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'})}
+  }else{S.streak=0;S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});$('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div><div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts" role="group" aria-label="What tripped you up"><button type="button" data-e="Sign">Sign</button><button type="button" data-e="Operation">Operation</button><button type="button" data-e="Arithmetic">Arithmetic</button><button type="button" data-e="Not sure">Not sure</button></div>`;document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'})}
 }
 function benchCheck(v){const id=activeTopicId(),ok=String(v)===String(q.a);creditAttempt(id,ok,q);save();setPhase('practice',{answerReact:ok?'celebrate':'encourage'});const last=bench.idx>=bench.items.length-1;$('feedback').append(button(last?'See error analysis →':'Next question →',()=>{if(last)benchSummary();else{bench.idx++;showBenchQuestion()}}))}
 function sessionGoalMet(){const goal=practiceGoal(),gained=S.attempts[activeTopicId()].n-sessionPracticeStart;return goal===0||gained>=goal}
@@ -427,6 +457,7 @@ function renderDashboard(){
   $('dDays').textContent=`${daysDone} / ${TOPICS.length}`;$('dXp').textContent=S.xp;$('dSolved').textContent=S.total;$('dAcc').textContent=acc+'%';$('dBest').textContent=S.best;
   const dCoins=$('dCoins');if(dCoins)dCoins.textContent=S.coins;
   $('overallBar').style.width=pct+'%';
+  const barWrap=$('overallBar')?.parentElement;if(barWrap?.getAttribute('role')==='progressbar'){barWrap.setAttribute('aria-valuenow',String(pct));barWrap.setAttribute('aria-valuetext',`${pct}% of days completed`)}
   $('overallCap').innerHTML=allDone?`<b>All ${TOPICS.length} days completed (${pct}%)</b> • Next: ${OPEN_ENDED_ICON} ${esc(OPEN_ENDED_TITLE)} (${S.attempts[OPEN_ENDED_ID].n} practices) · Focus: ${esc(focusModeLabel(S.settings.focusMode))}`:`<b>${daysDone} of ${TOPICS.length} days completed (${pct}%)</b> • Next up: Day ${ni+1} — ${esc(TOPICS[ni].title)}`;
   const trophies=computeTrophies(S);
   const trophiesEl=$('trophies');if(trophiesEl)trophiesEl.innerHTML=trophies.map(t=>`<div class="coachItem"><b>${t.icon} ${esc(t.title)}</b><span class="small">${esc(t.detail)}</span></div>`).join('');
@@ -469,7 +500,7 @@ function changePin(){const p=prompt('New 4-digit parent PIN');if(/^\d{4}$/.test(
 function resetLearning(){if(confirm('Reset learning progress but keep parent PIN and practice settings?')){const settings=S.settings;S=defaultState();S.settings=settings;save();location.reload()}}
 async function clearAll(){if(!confirm('Clear ALL MathQuest data from this browser/device? This cannot be undone.'))return;Object.keys(localStorage).filter(k=>k.toLowerCase().startsWith('mq7')||k.toLowerCase().includes('mathquest')).forEach(k=>localStorage.removeItem(k));if('caches'in window)for(const k of await caches.keys())if(k.toLowerCase().includes('mathquest'))await caches.delete(k);alert('All MathQuest local data cleared.');location.reload()}
 function esc(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
-$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;document.querySelectorAll('[data-award-coins]').forEach(b=>b.onclick=()=>applyParentCoinAward(b.dataset.awardCoins));const awardBtn=$('awardCoinsBtn');if(awardBtn)awardBtn.onclick=()=>applyParentCoinAward($('awardCoinsAmt')?.value,{confirmCustom:true});$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{$('breakOverlay').classList.add('hidden');$('breakDone').classList.add('hidden');noteActivity();resumePractice()};
+$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;document.querySelectorAll('[data-award-coins]').forEach(b=>b.onclick=()=>applyParentCoinAward(b.dataset.awardCoins));const awardBtn=$('awardCoinsBtn');if(awardBtn)awardBtn.onclick=()=>applyParentCoinAward($('awardCoinsAmt')?.value,{confirmCustom:true});$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{closeBreakOverlay();noteActivity();resumePractice()};
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){
     pausePractice();

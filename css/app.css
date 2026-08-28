@@ -28,3 +28,11 @@
 @keyframes petCheer{0%,100%{transform:translateY(0) scale(1)}50%{transform:translateY(-12px) scale(1.12)}}
 @keyframes petIdle{0%,100%{transform:translateY(0)}50%{transform:translateY(-4px)}}
 @media(prefers-reduced-motion:reduce){.seasonStarRow{animation:none}.companionPet.react-celebrate,.companionPet.react-encourage,.companionPet.react-think,.companionPet.react-nudge,.companionPet.react-cheer,.companionPet.react-idle{animation:none!important}}
+
+/* Accessibility helpers (0.24.0) */
+.skipLink{position:absolute;left:-9999px;top:auto;width:1px;height:1px;overflow:hidden}
+.skipLink:focus{position:fixed;left:12px;top:12px;width:auto;height:auto;z-index:2000;padding:10px 14px;background:#ffe171;color:#062038;border-radius:10px;font-weight:900;outline:3px solid #65d6ff;outline-offset:2px}
+.srOnly{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
+button.token{appearance:none;-webkit-appearance:none;font:inherit;color:inherit;text-align:inherit;border:0;cursor:pointer}
+button:focus-visible,.token:focus-visible,.answer:focus-visible,.day.clickable:focus-visible,.realmTab:focus-visible{outline:3px solid #ffe171;outline-offset:2px}
+.phasebar [aria-current="step"]{box-shadow:0 0 0 2px #ffe171}

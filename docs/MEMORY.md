@@ -44,6 +44,7 @@ The experience should:
 - Parent/Admin may **award cosmetic coins** locally (presets/custom with confirm); awards append `state.parentCoinAwards` (local audit trail); coins never unlock lessons
 - My Realm store uses **Buildings / Pet Store / Pet Skins** tabs; **Free Preview** is always available (even with 0 coins) and never spends currency
 - Seasonal Home banners are local/offline (`js/seasonal.mjs`), dismissible per season, never gate lessons, and respect `prefers-reduced-motion`; seasonal star motion stays inside the banner
+- Accessibility is a default product rule (`.cursor/rules/mathquest-accessibility.mdc`): prefer native HTML first per W3C Using ARIA; every UI surface must keep landmarks, labeled controls, keyboard-operable practice answers/tokens, sparingly used live regions for feedback/PIN/companion reactions, and dialog focus management for the break overlay — without analytics or PII
 - Every account receives a free starter pet (Integer Fox); pets remain cosmetic and may react with local CSS animations during learning phases / answers
 - after the 20-day spine is cleared, unlock an **Open-Ended Mastery Quest** that recaps all NC.7 domains and offers endless mixed advanced practice (harder 2·4·4 tier mix) so learning continues without boredom
 - Parent/Admin may set a separate **mastery replay target** (10/20/40/unlimited) controlling how much practice is expected when revisiting completed days or the open-ended quest; this does not replace the first-time Exit Ticket practice target
