@@ -1,15 +1,17 @@
 import {TOPICS,WEEKS,PASS_MASTERY,MIN_MASTERY_ATTEMPTS,generateProblem,topicUnlocked,canTakeExit,updateMastery} from './curriculum.mjs';
 import {generateDailyBenchmark,CORE_DAILY_COUNT} from './daily-session.mjs';
-import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,resetMasterySession,flushMasterySegment,masterySessionElapsedMs,masteryDayTotalMs,formatPracticeDuration,yesterdayKey,todayKey,masteryLogRows} from './practice-timer.mjs';
+import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shouldIdlePause,pauseSegment,canResumePractice,resetMasterySession,flushMasterySegment,masterySessionElapsedMs,masteryDayTotalMs,formatPracticeDuration,yesterdayKey,todayKey,masteryLogRows,nextBreakThreshold} from './practice-timer.mjs';
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
-import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
+import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';
+import {shouldShowSeasonalBanner,dismissSeason,prefersReducedMotion} from './seasonal.mjs';
+const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
-function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0}}
-let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,toastTimer=null,previewTimer=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0;
-function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
+function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0,parentCoinAwards:[]}}
+let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null;
+function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.parentCoinAwards=Array.isArray(s.parentCoinAwards)?s.parentCoinAwards:[];s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome())renderRealm();renderCompanionStrip()}
 function artMarkup(entry){
   const src=entryArtUrl(entry);
@@ -55,17 +57,18 @@ function renderCompanionStrip(){
 }
 function onHome(){return!$('home').classList.contains('hidden')}
 function onParentDashboard(){return!$('parent').classList.contains('hidden')&&!$('dashboard').classList.contains('hidden')}
-function refreshInsightPanels(){if(onHome()){renderStudentCoach();renderRealm();renderDayClearCoinClaim()}if(onParentDashboard())renderDashboard()}
+function refreshInsightPanels(){if(onHome()){renderStudentCoach();renderRealm();renderDayClearCoinClaim();renderSeasonalBanner()}if(onParentDashboard())renderDashboard()}
 function syncPracticeDay(){if(ensurePracticeDay(S)){runningSince=runningSince!=null?Date.now():null;if(sessionMode==='open'&&masteryRunningSince!=null)masteryRunningSince=Date.now()}}
 function go(id){
   if(id!=='home'&&realmPreview){clearTimeout(previewTimer);realmPreview=null;}
   for(const x of ['home','learn','parent'])$(x).classList.toggle('hidden',x!==id);
   if(id==='parent'||(id==='home'&&sessionMode==='open'))pausePractice();
-  if(id==='home'){renderMap();renderDayClearCoinClaim()}
+  if(id==='home'){renderMap();renderDayClearCoinClaim();renderSeasonalBanner()}
+  else stopStarShower();
   if(id!=='parent'){noteActivity();resumePractice()}
   renderCompanionStrip();
 }
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.21.0'}}function currentInsights(){return analyzeLearner(S)}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.22.0'}}function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
 function goalLabel(n){return n===0?'∞':String(n)}
@@ -78,11 +81,63 @@ function renderDayClearCoinClaim(){
   box.innerHTML=`<h2>🪙 Claim missed day-clear coins</h2><p>You already cleared <b>${preview.days}</b> ${dayWord} before day-clear coins were tracked. Claim <b>${preview.coins}</b> 🪙 once (${preview.days} × 100) — spend them in My Realm. This does not change mastery or unlock days.</p><button type="button" class="btn" id="claimDayClearCoinsBtn">Claim ${preview.coins} coins for ${preview.days} cleared ${dayWord}</button>`;
   const btn=$('claimDayClearCoinsBtn');
   if(btn)btn.onclick=()=>{
-    const r=claimDayClearCoinBackfill(S);
-    if(!r.ok)return showToast(r.reason||'Nothing to claim',3500);
-    save();
-    showToast(`Claimed ${r.coins} 🪙 for ${r.days} cleared ${r.days===1?'day':'days'}!`,5000);
+    if(claimInFlight)return;
+    claimInFlight=true;btn.disabled=true;
+    try{
+      const r=claimDayClearCoinBackfill(S);
+      if(!r.ok){showToast(r.reason||'Nothing to claim',3500);return}
+      save();
+      showToast(`Claimed ${r.coins} 🪙 for ${r.days} cleared ${r.days===1?'day':'days'}!`,5000);
+    }finally{claimInFlight=false}
   };
+}
+function stopStarShower(){
+  clearInterval(cheerTimer);cheerTimer=null;
+  const box=$('seasonalBanner');
+  if(box?._cheerRotate){clearInterval(box._cheerRotate);box._cheerRotate=null}
+  const layer=$('starShower');if(layer){layer.innerHTML='';layer.classList.add('hidden')}
+}
+function startStarShower(){
+  const layer=$('starShower');if(!layer||prefersReducedMotion()){const l=$('starShower');if(l){l.innerHTML='';l.classList.add('hidden')}clearInterval(cheerTimer);cheerTimer=null;return}
+  layer.classList.remove('hidden');
+  clearInterval(cheerTimer);
+  const spawn=()=>{
+    if(!onHome()||document.visibilityState==='hidden')return;
+    const star=document.createElement('span');
+    star.className='starParticle';
+    star.textContent=['✨','⭐','🌟'][Math.floor(Math.random()*3)];
+    star.style.left=`${Math.random()*100}%`;
+    star.style.animationDuration=`${2.4+Math.random()*2.2}s`;
+    layer.appendChild(star);
+    setTimeout(()=>star.remove(),4800);
+    while(layer.children.length>28)layer.firstChild.remove();
+  };
+  layer.innerHTML='';
+  for(let i=0;i<8;i++)spawn();
+  cheerTimer=setInterval(spawn,420);
+}
+function renderSeasonalBanner(){
+  const box=$('seasonalBanner');if(!box)return;
+  if(box._cheerRotate){clearInterval(box._cheerRotate);box._cheerRotate=null}
+  if(!onHome()){box.classList.add('hidden');box.innerHTML='';stopStarShower();return}
+  const season=shouldShowSeasonalBanner();
+  if(!season){box.classList.add('hidden');box.innerHTML='';stopStarShower();return}
+  box.classList.remove('hidden');
+  const cheers=season.cheers.map((c,i)=>`<div class="seasonCheer ${i===0?'on':''}" data-cheer="${i}">${esc(c)}</div>`).join('');
+  box.innerHTML=`<div class="seasonBannerInner"><div class="seasonBadge">🎒 Season</div><h2>${esc(season.headline)}</h2><p class="small">${esc(season.blurb)}</p><div class="seasonCheerTrack" id="seasonCheerTrack">${cheers}</div><button type="button" class="btn alt" id="dismissSeasonBtn">Dismiss for now</button></div>`;
+  const dismiss=$('dismissSeasonBtn');
+  if(dismiss)dismiss.onclick=()=>{dismissSeason(season.id);renderSeasonalBanner();showToast('Banner hidden for this season. Keep practicing!',3500)};
+  startStarShower();
+  let idx=0;
+  if(!prefersReducedMotion()){
+    box._cheerRotate=setInterval(()=>{
+      const track=$('seasonCheerTrack');if(!track)return;
+      const nodes=[...track.querySelectorAll('.seasonCheer')];
+      if(!nodes.length)return;
+      idx=(idx+1)%nodes.length;
+      nodes.forEach((n,i)=>n.classList.toggle('on',i===idx));
+    },3200);
+  }
 }
 function renderStudentCoach(){
   const insights=currentInsights(),box=$('studentCoach');if(!box)return;
@@ -219,16 +274,36 @@ function showBoostPath(){
 }
 function elapsedMin(){syncPracticeDay();return Math.max(0,elapsedPracticeMin(S.practiceMs,runningSince))}
 function onParentScreen(){return!$('parent').classList.contains('hidden')}
-function pausePractice(){runningSince=pauseSegment(S,runningSince);if(sessionMode==='open')masteryRunningSince=flushMasterySegment(S,masteryRunningSince);save()}
+function pausePractice(){const opts={lastActiveAt};runningSince=pauseSegment(S,runningSince,Date.now(),opts);if(sessionMode==='open')masteryRunningSince=flushMasterySegment(S,masteryRunningSince,Date.now(),opts);save()}
 function resumePractice(){syncPracticeDay();if(onParentScreen())return;const hidden=typeof document!=='undefined'&&document.visibilityState==='hidden';const idle=shouldIdlePause(lastActiveAt,Date.now(),IDLE_PAUSE_MS);if(!canResumePractice({onBreak,hidden,idle}))return;if(runningSince==null)runningSince=Date.now();if(sessionMode==='open'&&masteryRunningSince==null&&!onHome())masteryRunningSince=Date.now()}
 function noteActivity(){lastActiveAt=Date.now();if(!onBreak&&!onParentScreen()&&typeof document!=='undefined'&&document.visibilityState!=='hidden')resumePractice()}
 function startClock(){clearInterval(timer);const tick=()=>{syncPracticeDay();if(runningSince!=null&&shouldIdlePause(lastActiveAt,Date.now(),IDLE_PAUSE_MS))pausePractice();const m=elapsedMin();$('sessionClock').textContent=`⏱ ${m} min`;$('sessionClock').dataset.tip=`Cool, you have about ${m} minute${m===1?'':'s'} of active practice today..! The timer pauses on breaks, when the tab is hidden, or after 5 minutes away. Keep going — and take healthy screen breaks!`;if(sessionMode==='open'){const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}renderTop();if(!onBreak&&m>=S.nextBreakMin)triggerBreak(m)};tick();timer=setInterval(tick,1000)}
 function showToast(msg,ms=9000){const t=$('toast');t.textContent=msg;t.classList.remove('hidden');t.classList.add('show');clearTimeout(toastTimer);toastTimer=setTimeout(()=>{t.classList.remove('show');setTimeout(()=>t.classList.add('hidden'),400)},ms)}
-function triggerBreak(m){onBreak=true;pausePractice();showToast(`⏸️ Cool — you've practiced for about ${m} minutes! 👏 Time to stand up, stretch, hydrate, and rest your eyes (look ~20 ft away for 20 sec). Learning should be fun — let's take a healthy screen break!`,12000);openBreak(m)}
+function triggerBreak(m){onBreak=true;breakBonusAwarded=false;breakEndsAt=null;pausePractice();showToast(`⏸️ Cool — you've practiced for about ${m} minutes! 👏 Time to stand up, stretch, hydrate, and rest your eyes (look ~20 ft away for 20 sec). Learning should be fun — let's take a healthy screen break!`,12000);openBreak(m)}
 function openBreak(m){const ov=$('breakOverlay');ov.classList.remove('hidden');$('breakChoose').classList.remove('hidden');$('breakCountdown').classList.add('hidden');$('breakDone').classList.add('hidden');$('breakTitle').textContent='🧘 Time for a screen break!';$('breakMsg').textContent=`You've been practicing for about ${m} minutes — awesome focus! Screens are for learning, not for sitting too long. Pick a break length below. The screen will rest so you can move around, stretch, drink water, and look far away.`}
-function startBreakCountdown(mins){const start=Date.now(),total=mins*60;$('breakChoose').classList.add('hidden');$('breakDone').classList.add('hidden');$('breakCountdown').classList.remove('hidden');$('breakTitle').textContent='🌟 Screen is resting — go be active!';const tips=['👀 20-20-20 rule: look about 20 feet away for 20 seconds.','🏃 Stand up and move around — stretch your arms and legs.','💧 Drink some water and blink a few times.','🌤️ Look out a window or step outside if you can.'];const render=()=>{const left=Math.max(0,total-Math.floor((Date.now()-start)/1000)),mm=Math.floor(left/60),ss=left%60;$('breakClock').textContent=`${mm}:${String(ss).padStart(2,'0')}`;$('breakTip').textContent=tips[Math.floor((Date.now()-start)/4000)%tips.length];if(left<=0){clearInterval(breakTimer);endBreak()}};render();breakTimer=setInterval(render,1000)}
+function renderBreakClock(){
+  if(breakEndsAt==null)return;
+  const left=Math.max(0,Math.ceil((breakEndsAt-Date.now())/1000));
+  const mm=Math.floor(left/60),ss=left%60;
+  const clock=$('breakClock');if(clock)clock.textContent=`${mm}:${String(ss).padStart(2,'0')}`;
+  const tips=['👀 20-20-20 rule: look about 20 feet away for 20 seconds.','🏃 Stand up and move around — stretch your arms and legs.','💧 Drink some water and blink a few times.','🌤️ Look out a window or step outside if you can.'];
+  const tip=$('breakTip');if(tip)tip.textContent=tips[Math.floor((Date.now()/4000))%tips.length];
+  if(left<=0){clearInterval(breakTimer);breakTimer=null;endBreak()}
+}
+function startBreakCountdown(mins){
+  clearInterval(breakTimer);
+  breakEndsAt=Date.now()+mins*60*1000;
+  $('breakChoose').classList.add('hidden');$('breakDone').classList.add('hidden');$('breakCountdown').classList.remove('hidden');$('breakTitle').textContent='🌟 Screen is resting — go be active!';
+  renderBreakClock();
+  breakTimer=setInterval(renderBreakClock,1000);
+}
 function endBreak(){
-  S.nextBreakMin+=BREAK_EVERY_MIN;onBreak=false;
+  if(breakBonusAwarded)return;
+  breakBonusAwarded=true;
+  clearInterval(breakTimer);breakTimer=null;breakEndsAt=null;
+  const m=elapsedMin();
+  S.nextBreakMin=nextBreakThreshold(m,BREAK_EVERY_MIN,S.nextBreakMin);
+  onBreak=false;
   const bonus=awardBreakBonus(S);
   save();
   $('breakCountdown').classList.add('hidden');$('breakChoose').classList.add('hidden');$('breakDone').classList.remove('hidden');
@@ -335,6 +410,13 @@ function renderDashboard(){
   $('overallCap').innerHTML=allDone?`<b>All ${TOPICS.length} days completed (${pct}%)</b> • Next: ${OPEN_ENDED_ICON} ${esc(OPEN_ENDED_TITLE)} (${S.attempts[OPEN_ENDED_ID].n} practices) · Focus: ${esc(focusModeLabel(S.settings.focusMode))}`:`<b>${daysDone} of ${TOPICS.length} days completed (${pct}%)</b> • Next up: Day ${ni+1} — ${esc(TOPICS[ni].title)}`;
   const trophies=computeTrophies(S);
   const trophiesEl=$('trophies');if(trophiesEl)trophiesEl.innerHTML=trophies.map(t=>`<div class="coachItem"><b>${t.icon} ${esc(t.title)}</b><span class="small">${esc(t.detail)}</span></div>`).join('');
+  const awardLog=$('parentCoinAwardLog');
+  if(awardLog){
+    const rows=parentCoinAwardRows(S,8);
+    awardLog.innerHTML=rows.length
+      ?`<p class="small">Recent Parent/Admin awards (local only):</p><ul class="awardLogList">${rows.map(r=>{const when=new Date(r.at);const stamp=Number.isFinite(when.getTime())?when.toLocaleString():'—';return`<li><b>+${r.amount} 🪙</b> → balance ${r.total} · <span class="small">${esc(stamp)}</span></li>`}).join('')}</ul>`
+      :'<p class="small">No parent awards yet. Use the buttons above to grant cosmetic coins.</p>';
+  }
   $('strengths').innerHTML=insights.strengths.length?insights.strengths.map(formatInsightChip).map(c=>`<div class="coachItem"><b>${c.icon} Day ${c.day}: ${esc(c.title)}</b><span class="small">${c.standard} · Mastery ${c.mastery}% · Accuracy ${c.accuracy} · ${c.attempts} attempts · ${c.misses} misses</span></div>`).join(''):'<p class="small">No strengths yet — need solid practice evidence (accuracy and mastery) on a day first.</p>';
   $('improvements').innerHTML=insights.improvements.length?insights.improvements.map(row=>{const plan=insights.plan.find(p=>p.topicId===row.topic.id);return improvementPreviewHtml(row.topic,plan?.action||`Focus Day ${TOPICS.indexOf(row.topic)+1}: ${row.topic.title}`,{forParent:true})}).join(''):'<p class="small">No improvement targets yet. After the learner misses questions or stays below 80% mastery, targets appear here automatically.</p>';
   $('improvePlan').innerHTML=`<div class="parentNote">👁 Parent/Admin view is read-only. Practice / GIF boost buttons are student-only on the home coaching plan so adults reviewing here do not start practice or change progress.</div>`+(insights.plan.filter(p=>p.day!=null).length?insights.plan.filter(p=>p.day!=null).map(p=>improvementPreviewHtml(TOPICS[p.day-1],p.action,{forParent:true})).join(''):insights.plan.map(p=>`<div class="coachItem"><b>${esc(p.title||'Plan')}</b><span class="small">${esc(p.action)}</span></div>`).join(''));
@@ -352,7 +434,10 @@ function renderDashboard(){
   $('skills').innerHTML=WEEKS.map(w=>{const rows=TOPICS.map((t,i)=>({t,i})).filter(o=>o.t.week===w.week).map(({t,i})=>{const m=S.mastery[t.id],u=topicUnlocked(S,i),done=S.cleared[t.id]&&m>=PASS_MASTERY;return`<div class="skillRow ${done?'done':''} ${u?'':'locked'}"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="skillPct">${m}%${done?' ✓':''}</span><div class="bar"><i style="width:${m}%"></i></div></div>`}).join('');return`<div class="weekBlock"><h3>Week ${w.week}: ${esc(w.title)} <small>${esc(w.standard)}</small></h3>${rows}</div>`}).join('');
   renderFocusPins();
 }
-function applyParentCoinAward(amount){
+function applyParentCoinAward(amount,{confirmCustom=false}={}){
+  const n=Math.floor(Number(amount));
+  if(confirmCustom&&(!Number.isFinite(n)||n<=0)){showToast('Enter a positive coin amount',3500);return}
+  if(confirmCustom&&!confirm(`Award ${n} cosmetic coins to the student?`))return;
   const res=awardParentCoins(S,amount);
   if(!res.ok){showToast(res.reason||'Could not award coins',4000);return}
   save();
@@ -364,9 +449,19 @@ function changePin(){const p=prompt('New 4-digit parent PIN');if(/^\d{4}$/.test(
 function resetLearning(){if(confirm('Reset learning progress but keep parent PIN and practice settings?')){const settings=S.settings;S=defaultState();S.settings=settings;save();location.reload()}}
 async function clearAll(){if(!confirm('Clear ALL MathQuest data from this browser/device? This cannot be undone.'))return;Object.keys(localStorage).filter(k=>k.toLowerCase().startsWith('mq7')||k.toLowerCase().includes('mathquest')).forEach(k=>localStorage.removeItem(k));if('caches'in window)for(const k of await caches.keys())if(k.toLowerCase().includes('mathquest'))await caches.delete(k);alert('All MathQuest local data cleared.');location.reload()}
 function esc(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
-$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;document.querySelectorAll('[data-award-coins]').forEach(b=>b.onclick=()=>applyParentCoinAward(b.dataset.awardCoins));const awardBtn=$('awardCoinsBtn');if(awardBtn)awardBtn.onclick=()=>applyParentCoinAward($('awardCoinsAmt')?.value);$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{$('breakOverlay').classList.add('hidden');$('breakDone').classList.add('hidden');noteActivity();resumePractice()};
-document.addEventListener('visibilitychange',()=>{if(document.visibilityState==='hidden')pausePractice();else{noteActivity();resumePractice()}});
+$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;document.querySelectorAll('[data-award-coins]').forEach(b=>b.onclick=()=>applyParentCoinAward(b.dataset.awardCoins));const awardBtn=$('awardCoinsBtn');if(awardBtn)awardBtn.onclick=()=>applyParentCoinAward($('awardCoinsAmt')?.value,{confirmCustom:true});$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{$('breakOverlay').classList.add('hidden');$('breakDone').classList.add('hidden');noteActivity();resumePractice()};
+document.addEventListener('visibilitychange',()=>{
+  if(document.visibilityState==='hidden'){
+    pausePractice();
+    if(cheerTimer){clearInterval(cheerTimer);cheerTimer=null}
+  }else{
+    noteActivity();
+    resumePractice();
+    if(breakEndsAt!=null)renderBreakClock();
+    if(onHome()){renderSeasonalBanner()}
+  }
+});
 window.addEventListener('pagehide',pausePractice);
 ['pointerdown','keydown','touchstart','mousemove','scroll'].forEach(ev=>document.addEventListener(ev,noteActivity,{passive:true}));
-renderTop();renderMap();renderRealm();renderCompanionStrip();renderDayClearCoinClaim();loadVersion();syncPracticeDay();noteActivity();resumePractice();startClock();
+renderTop();renderMap();renderRealm();renderCompanionStrip();renderDayClearCoinClaim();renderSeasonalBanner();loadVersion();syncPracticeDay();noteActivity();resumePractice();startClock();
 if('serviceWorker'in navigator)navigator.serviceWorker.register(new URL('../sw.js',import.meta.url)).catch(()=>{});

@@ -48,13 +48,37 @@ export function shouldIdlePause(lastActiveAt,now=Date.now(),idleMs=IDLE_PAUSE_MS
   return now-lastActiveAt>=idleMs;
 }
 
+/**
+ * Cap a segment end time so background/idle gaps past lastActiveAt + idleMs are not credited.
+ * If lastActiveAt is omitted, credits through `now` (legacy).
+ */
+export function cappedSegmentEnd(runningSince,now=Date.now(),{lastActiveAt=null,idleMs=IDLE_PAUSE_MS}={}){
+  if(runningSince==null)return now;
+  let end=now;
+  if(lastActiveAt!=null&&Number.isFinite(lastActiveAt)){
+    const cap=Number(lastActiveAt)+(Number(idleMs)||IDLE_PAUSE_MS);
+    end=Math.min(now,Math.max(runningSince,cap));
+  }
+  return end;
+}
+
 /** Flush an open active segment into practiceMs. Returns the new runningSince (null when paused). */
-export function pauseSegment(state,runningSince,now=Date.now()){
+export function pauseSegment(state,runningSince,now=Date.now(),opts={}){
   if(runningSince!=null){
-    state.practiceMs=activeElapsedMs(state.practiceMs,runningSince,now);
+    const end=cappedSegmentEnd(runningSince,now,opts);
+    state.practiceMs=activeElapsedMs(state.practiceMs,runningSince,end);
     return null;
   }
   return runningSince;
+}
+
+/** Next break threshold at or above current minutes (prevents cascade after a large catch-up). */
+export function nextBreakThreshold(currentMin,everyMin=BREAK_EVERY_MIN,prevThreshold=null){
+  const every=Math.max(1,Number(everyMin)||BREAK_EVERY_MIN);
+  const m=Math.max(0,Number(currentMin)||0);
+  const fromCeil=(Math.floor(m/every)+1)*every;
+  if(prevThreshold==null||!Number.isFinite(prevThreshold))return fromCeil;
+  return Math.max(Number(prevThreshold)+every,fromCeil);
 }
 
 export function canResumePractice({onBreak=false,hidden=false,idle=false}={}){
@@ -70,9 +94,10 @@ export function resetMasterySession(state){
  * Flush an open mastery segment into today's daily log and the visit stopwatch.
  * Returns null (paused). Does not count breaks / away time.
  */
-export function flushMasterySegment(state,masteryRunningSince,now=Date.now()){
+export function flushMasterySegment(state,masteryRunningSince,now=Date.now(),opts={}){
   if(masteryRunningSince==null)return null;
-  const delta=Math.max(0,now-masteryRunningSince);
+  const end=cappedSegmentEnd(masteryRunningSince,now,opts);
+  const delta=Math.max(0,end-masteryRunningSince);
   const key=todayKey(new Date(now));
   if(!state.masteryPracticeByDay||typeof state.masteryPracticeByDay!=='object')state.masteryPracticeByDay={};
   state.masteryPracticeByDay[key]=(Number(state.masteryPracticeByDay[key])||0)+delta;
