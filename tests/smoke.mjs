@@ -8,7 +8,7 @@ import {IDLE_PAUSE_MS,todayKey,yesterdayKey,ensurePracticeDay,elapsedPracticeMin
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,allTopicsCleared,openEndedUnlocked,MASTERY_LEVEL_COUNTS,OPEN_ENDED_ID} from '../js/mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,SYLLABUS_GAPS} from '../js/learner-insights.mjs';
 import {boostStepsForTopic,boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from '../js/coach-visuals.mjs';
-import {streakCoinMultiplier,coinsForCorrect,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,buyPet,buyPetSkin,realmStageView,companionStripView,COMPANION_BUILDING_LIMIT,REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,computeTrophies,heroTitle,XP_PER_CORRECT,COINS_DAY_CLEAR,COINS_BREAK_BONUS,REALM_PREVIEW_MS,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,eligibleDayClearCoinIds} from '../js/rewards.mjs';
+import {streakCoinMultiplier,coinsForCorrect,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,buyPet,buyPetSkin,realmStageView,companionStripView,COMPANION_BUILDING_LIMIT,REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,computeTrophies,heroTitle,XP_PER_CORRECT,COINS_DAY_CLEAR,COINS_BREAK_BONUS,REALM_PREVIEW_MS,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,eligibleDayClearCoinIds,ensureDefaultPet,DEFAULT_PET_ID} from '../js/rewards.mjs';
 import {activeSeason,shouldShowSeasonalBanner,dismissSeason,seasonDismissKey,SEASONS} from '../js/seasonal.mjs';
 const ROOT=join(dirname(fileURLToPath(import.meta.url)),'..');
 const repoRoot=ROOT;const appSource=readFileSync(join(ROOT,'js','app.js'),'utf8');
@@ -46,8 +46,16 @@ assert.ok(/previewRealmItem|buyPet|realmTab|Pet Store|Free Preview|renderCompani
 assert.ok(/awardParentCoins|applyParentCoinAward|data-award-coins|awardCoinsBtn/.test(appSource),'UI must wire Parent/Admin award-coins control');
 assert.ok(swSource.includes('seasonal.mjs'),'Service worker must cache seasonal.mjs');
 assert.ok(/from ['"]\.\/seasonal\.mjs['"]/.test(appSource),'UI must import seasonal banner helpers');
-assert.ok(/renderSeasonalBanner|starShower|nextBreakThreshold/.test(appSource),'UI must render seasonal banner and hardened break scheduling');
+assert.ok(/renderSeasonalBanner|seasonStarTray|petReact|ensureDefaultPet/.test(appSource),'UI must render banner stars and pet reactions with default pet');
 assert.ok(indexSource.includes('seasonalBanner'),'Home must include seasonal banner mount');
+assert.ok(swSource.includes('assets/seasonal/'),'Service worker must cache seasonal assets');
+assert.equal(DEFAULT_PET_ID,'fox');
+const migrated={pets:[],activePet:null};
+ensureDefaultPet(migrated);
+assert.deepEqual(migrated.pets,['fox']);
+assert.equal(migrated.activePet,'fox');
+ensureDefaultPet(migrated);
+assert.equal(migrated.pets.filter(id=>id==='fox').length,1,'Default pet grant is idempotent');
 assert.ok(indexSource.includes('starShower'),'Home must include star shower layer');
 assert.ok(indexSource.includes('parentCoinAwardLog'),'Parent panel must show coin award log');
 assert.ok(SEASONS.some(s=>s.id==='back_to_school'),'Back to school season must be defined');

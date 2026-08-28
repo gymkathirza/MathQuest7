@@ -4,14 +4,16 @@ import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shoul
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
-import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill} from './rewards.mjs';
+import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,ensureDefaultPet,DEFAULT_PET_ID} from './rewards.mjs';
 import {shouldShowSeasonalBanner,dismissSeason,prefersReducedMotion} from './seasonal.mjs';
 const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1 · Standard Practice',emoji:'🟢'},complex:{tag:'Level 2 · Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3 · NC Real-World Word Problem',emoji:'🔴'}};
+const PET_REACT_MS=1600;
+const PHASE_PET_REACT={warmup:'think',learn:'think',guided:'nudge',practice:'idle',review:'cheer',exit:'cheer'};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
-function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[],petSkins:[],activePet:null,activePetSkin:null,breaksCompleted:0,parentCoinAwards:[]}}
-let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null;
-function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.parentCoinAwards=Array.isArray(s.parentCoinAwards)?s.parentCoinAwards:[];s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
+function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[DEFAULT_PET_ID],petSkins:[],activePet:DEFAULT_PET_ID,activePetSkin:null,breaksCompleted:0,parentCoinAwards:[]}}
+let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,petReactTimer=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null;
+function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.parentCoinAwards=Array.isArray(s.parentCoinAwards)?s.parentCoinAwards:[];s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];ensureDefaultPet(s);if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome())renderRealm();renderCompanionStrip()}
 function artMarkup(entry){
   const src=entryArtUrl(entry);
@@ -41,7 +43,82 @@ function renderCompanionStrip(){
   const banner=view.previewLabel?`<div class="companionPreviewLabel">${esc(view.previewLabel)} · free</div>`:'';
   el.innerHTML=`<div class="companionInner">${banner}${pet}${builds}${ghost}${more}</div>`;
   bindArtFallbacks(el);
-}function renderTop(){
+}
+function petReact(kind='idle'){
+  if(prefersReducedMotion())return;
+  const pet=$('realmCompanion')?.querySelector('.companionPet');
+  if(!pet)return;
+  const classes=['react-celebrate','react-encourage','react-think','react-nudge','react-cheer','react-idle'];
+  pet.classList.remove(...classes);
+  void pet.offsetWidth;
+  const cls={
+    celebrate:'react-celebrate',
+    correct:'react-celebrate',
+    encourage:'react-encourage',
+    wrong:'react-encourage',
+    think:'react-think',
+    nudge:'react-nudge',
+    cheer:'react-cheer',
+    idle:'react-idle'
+  }[kind]||'react-idle';
+  pet.classList.add(cls);
+  clearTimeout(petReactTimer);
+  petReactTimer=setTimeout(()=>pet.classList.remove(...classes),PET_REACT_MS);
+}
+function stopStarShower(){
+  clearInterval(cheerTimer);cheerTimer=null;
+  const box=$('seasonalBanner');
+  if(box?._cheerRotate){clearInterval(box._cheerRotate);box._cheerRotate=null}
+  const tray=$('seasonStarTray');
+  if(tray){tray.querySelectorAll('.seasonSpark').forEach(n=>n.remove())}
+  const layer=$('starShower');if(layer){layer.innerHTML='';layer.classList.add('hidden')}
+}
+function startStarShower(){
+  // Stars live inside the seasonal banner tray (not full-page).
+  const tray=$('seasonStarTray');
+  clearInterval(cheerTimer);cheerTimer=null;
+  const page=$('starShower');if(page){page.innerHTML='';page.classList.add('hidden')}
+  if(!tray||prefersReducedMotion())return;
+  const spawn=()=>{
+    if(!onHome()||document.visibilityState==='hidden'||!$('seasonalBanner')||$('seasonalBanner').classList.contains('hidden'))return;
+    const spark=document.createElement('span');
+    spark.className='seasonSpark';
+    spark.textContent=['✨','⭐','🌟'][Math.floor(Math.random()*3)];
+    spark.style.left=`${8+Math.random()*55}%`;
+    spark.style.animationDuration=`${1.6+Math.random()*1.4}s`;
+    const layer=tray.querySelector('.seasonSparkLayer')||tray;
+    layer.appendChild(spark);
+    setTimeout(()=>spark.remove(),3200);
+    while(layer.querySelectorAll('.seasonSpark').length>14)layer.querySelector('.seasonSpark')?.remove();
+  };
+  for(let i=0;i<5;i++)spawn();
+  cheerTimer=setInterval(spawn,520);
+}
+function renderSeasonalBanner(){
+  const box=$('seasonalBanner');if(!box)return;
+  if(box._cheerRotate){clearInterval(box._cheerRotate);box._cheerRotate=null}
+  if(!onHome()){box.classList.add('hidden');box.innerHTML='';stopStarShower();return}
+  const season=shouldShowSeasonalBanner();
+  if(!season){box.classList.add('hidden');box.innerHTML='';stopStarShower();return}
+  box.classList.remove('hidden');
+  const cheers=season.cheers.map((c,i)=>`<div class="seasonCheer ${i===0?'on':''}" data-cheer="${i}">${esc(c)}</div>`).join('');
+  const starArt=new URL('../assets/seasonal/star-row.png',import.meta.url).href;
+  box.innerHTML=`<div class="seasonBannerInner"><div class="seasonBadge">🎒 Season</div><h2>${esc(season.headline)}</h2><p class="small">${esc(season.blurb)}</p><div class="seasonCheerTrack" id="seasonCheerTrack">${cheers}</div><button type="button" class="btn alt" id="dismissSeasonBtn">Dismiss for now</button></div><div class="seasonStarTray" id="seasonStarTray" aria-hidden="true"><img class="seasonStarArt" src="${starArt}" alt=""><div class="seasonSparkLayer"></div></div>`;
+  const dismiss=$('dismissSeasonBtn');
+  if(dismiss)dismiss.onclick=()=>{dismissSeason(season.id);renderSeasonalBanner();showToast('Banner hidden for this season. Keep practicing!',3500)};
+  startStarShower();
+  let idx=0;
+  if(!prefersReducedMotion()){
+    box._cheerRotate=setInterval(()=>{
+      const track=$('seasonCheerTrack');if(!track)return;
+      const nodes=[...track.querySelectorAll('.seasonCheer')];
+      if(!nodes.length)return;
+      idx=(idx+1)%nodes.length;
+      nodes.forEach((n,i)=>n.classList.toggle('on',i===idx));
+    },3200);
+  }
+}
+function renderTop(){
   $('xp').textContent=S.xp;$('streak').textContent=S.streak;
   const coinsEl=$('coins');if(coinsEl)coinsEl.textContent=S.coins;
   const titleEl=$('heroTitle');if(titleEl)titleEl.textContent=heroTitle(S.xp);
@@ -68,7 +145,7 @@ function go(id){
   if(id!=='parent'){noteActivity();resumePractice()}
   renderCompanionStrip();
 }
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version}catch{$('versionBadge').textContent='v0.22.0'}}function currentInsights(){return analyzeLearner(S)}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version }catch{$('versionBadge').textContent='v0.23.0'}}function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
 function goalLabel(n){return n===0?'∞':String(n)}
@@ -90,54 +167,6 @@ function renderDayClearCoinClaim(){
       showToast(`Claimed ${r.coins} 🪙 for ${r.days} cleared ${r.days===1?'day':'days'}!`,5000);
     }finally{claimInFlight=false}
   };
-}
-function stopStarShower(){
-  clearInterval(cheerTimer);cheerTimer=null;
-  const box=$('seasonalBanner');
-  if(box?._cheerRotate){clearInterval(box._cheerRotate);box._cheerRotate=null}
-  const layer=$('starShower');if(layer){layer.innerHTML='';layer.classList.add('hidden')}
-}
-function startStarShower(){
-  const layer=$('starShower');if(!layer||prefersReducedMotion()){const l=$('starShower');if(l){l.innerHTML='';l.classList.add('hidden')}clearInterval(cheerTimer);cheerTimer=null;return}
-  layer.classList.remove('hidden');
-  clearInterval(cheerTimer);
-  const spawn=()=>{
-    if(!onHome()||document.visibilityState==='hidden')return;
-    const star=document.createElement('span');
-    star.className='starParticle';
-    star.textContent=['✨','⭐','🌟'][Math.floor(Math.random()*3)];
-    star.style.left=`${Math.random()*100}%`;
-    star.style.animationDuration=`${2.4+Math.random()*2.2}s`;
-    layer.appendChild(star);
-    setTimeout(()=>star.remove(),4800);
-    while(layer.children.length>28)layer.firstChild.remove();
-  };
-  layer.innerHTML='';
-  for(let i=0;i<8;i++)spawn();
-  cheerTimer=setInterval(spawn,420);
-}
-function renderSeasonalBanner(){
-  const box=$('seasonalBanner');if(!box)return;
-  if(box._cheerRotate){clearInterval(box._cheerRotate);box._cheerRotate=null}
-  if(!onHome()){box.classList.add('hidden');box.innerHTML='';stopStarShower();return}
-  const season=shouldShowSeasonalBanner();
-  if(!season){box.classList.add('hidden');box.innerHTML='';stopStarShower();return}
-  box.classList.remove('hidden');
-  const cheers=season.cheers.map((c,i)=>`<div class="seasonCheer ${i===0?'on':''}" data-cheer="${i}">${esc(c)}</div>`).join('');
-  box.innerHTML=`<div class="seasonBannerInner"><div class="seasonBadge">🎒 Season</div><h2>${esc(season.headline)}</h2><p class="small">${esc(season.blurb)}</p><div class="seasonCheerTrack" id="seasonCheerTrack">${cheers}</div><button type="button" class="btn alt" id="dismissSeasonBtn">Dismiss for now</button></div>`;
-  const dismiss=$('dismissSeasonBtn');
-  if(dismiss)dismiss.onclick=()=>{dismissSeason(season.id);renderSeasonalBanner();showToast('Banner hidden for this season. Keep practicing!',3500)};
-  startStarShower();
-  let idx=0;
-  if(!prefersReducedMotion()){
-    box._cheerRotate=setInterval(()=>{
-      const track=$('seasonCheerTrack');if(!track)return;
-      const nodes=[...track.querySelectorAll('.seasonCheer')];
-      if(!nodes.length)return;
-      idx=(idx+1)%nodes.length;
-      nodes.forEach((n,i)=>n.classList.toggle('on',i===idx));
-    },3200);
-  }
 }
 function renderStudentCoach(){
   const insights=currentInsights(),box=$('studentCoach');if(!box)return;
@@ -189,10 +218,10 @@ function renderRealm(){
       return`<div class="realmCard ${have?'owned':''}"><div class="realmIcon">${artMarkup(b)}</div><b>${esc(b.name)}</b><span class="small">${esc(b.blurb)}</span><span class="small realmPrice">Price: ${b.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-building="${b.id}">👁 Free Preview</button>${buy}</div></div>`;
     }).join('')+`</div>`;
   }else if(realmTab==='pets'){
-    panel=`<h3 class="realmPanelTitle">🐾 Pet Store</h3><p class="small">Adopt a companion with coins. Use <b>Free Preview</b> first (no coins needed) — it appears in the bottom-right strip like practice. After adopting, tap <b>Make active</b> so they stay in your realm and practice corner.</p><div class="realmGrid">`+REALM_PETS.map(p=>{
-      const have=ownedP.has(p.id),check=canBuyPet(S,p.id),active=S.activePet===p.id,need=Math.max(0,p.cost-coins);
+    panel=`<h3 class="realmPanelTitle">🐾 Pet Store</h3><p class="small">Every adventurer starts with <b>Integer Fox</b> free. Adopt more companions with coins. Use <b>Free Preview</b> first (no coins needed) — it appears in the bottom-right strip like practice. After adopting, tap <b>Make active</b> so they stay in your realm and practice corner.</p><div class="realmGrid">`+REALM_PETS.map(p=>{
+      const have=ownedP.has(p.id),check=canBuyPet(S,p.id),active=S.activePet===p.id,need=Math.max(0,p.cost-coins),starter=p.id===DEFAULT_PET_ID;
       const buy=have?`<button type="button" class="btn alt" data-equip-pet="${p.id}">${active?'Active in window ✓':'Make active in window'}</button>`:`<button type="button" class="btn ${check.ok?'':'alt'}" data-buy-pet="${p.id}" ${check.ok?'':'disabled'}>${check.ok?`Adopt with ${p.cost} 🪙`:`Need ${need} more 🪙 to adopt`}</button>`;
-      return`<div class="realmCard ${have?'owned':''} ${active?'activePet':''}"><div class="realmIcon">${artMarkup(p)}</div><b>${esc(p.name)}</b><span class="small">${esc(p.blurb)}</span><span class="small realmPrice">Adopt price: ${p.cost} 🪙</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-pet="${p.id}">👁 Free Preview</button>${buy}</div></div>`;
+      return`<div class="realmCard ${have?'owned':''} ${active?'activePet':''}"><div class="realmIcon">${artMarkup(p)}</div><b>${esc(p.name)}</b>${starter?'<span class="tag">Starter friend</span>':''}<span class="small">${esc(p.blurb)}</span><span class="small realmPrice">${have?(starter?'Included free':'Adopted'):`Adopt price: ${p.cost} 🪙`}</span><div class="realmActions"><button type="button" class="btn previewBtn" data-preview-pet="${p.id}">👁 Free Preview</button>${buy}</div></div>`;
     }).join('')+`</div>`;
   }else{
     panel=`<h3 class="realmPanelTitle">✨ Pet skins shop</h3><p class="small">Skins dress up a pet you already own. <b>Free Preview</b> works anytime (even before you own the pet or have enough coins). Buy unlocks the skin; Wear puts it on your active pet.</p><div class="realmGrid">`+REALM_PET_SKINS.map(sk=>{
@@ -224,7 +253,7 @@ function renderRealmStage(){
   const view=realmStageView(S,realmPreview);
   const plots=view.buildings.map(b=>`<div class="realmPlot" title="${esc(b.name)}">${artMarkup(b)}<small>${esc(b.name)}</small></div>`).join('');
   const ghost=view.ghostBuilding?`<div class="realmPlot ghost pulse" title="Preview">${artMarkup(view.ghostBuilding)}<small>Free preview</small></div>`:'';
-  const pet=view.petArtEntry?`<div class="realmPet ${view.isPreview&&(realmPreview?.type==='pet'||realmPreview?.type==='skin')?'ghost pulse':''}" title="${esc(view.pet?.name||'Pet')}">${artMarkup(view.petArtEntry)}<small>${esc(view.skin?view.skin.name:view.pet?.name||'')}</small></div>`:`<div class="realmPet empty"><small>No pet yet — open Pet Store</small></div>`;
+  const pet=view.petArtEntry?`<div class="realmPet ${view.isPreview&&(realmPreview?.type==='pet'||realmPreview?.type==='skin')?'ghost pulse':''}" title="${esc(view.pet?.name||'Pet')}">${artMarkup(view.petArtEntry)}<small>${esc(view.skin?view.skin.name:view.pet?.name||'')}</small></div>`:`<div class="realmPet empty"><small>Starter pet loading…</small></div>`;
   const banner=view.previewLabel?`<div class="realmPreviewBanner">${esc(view.previewLabel)} · free (no coins) · ${Math.round(REALM_PREVIEW_MS/1000)}s</div>`:'';
   stage.innerHTML=`${banner}<div class="realmSky"><div class="realmGround">${plots}${ghost}${pet}</div></div>`;
   bindArtFallbacks(stage);
@@ -316,11 +345,12 @@ function setPhase(p){
   if(sessionMode==='open'){$('topicName').textContent=`${OPEN_ENDED_ICON} ${OPEN_ENDED_TITLE}`;const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}
   else{$('topicName').textContent=`${sessionMode==='replay'?'♻️ Mastery · ':''}Day ${current+1}: ${TOPICS[current].title}`;$('masteryPill').textContent=`${S.mastery[TOPICS[current].id]}% mastery`}
   renderCompanionStrip();
+  petReact(PHASE_PET_REACT[p]||'idle');
 }
 function button(label,fn,cls='btn'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=fn;return b}
-function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{$('feedback').innerHTML=a===w.a?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;$('feedback').append(button('Continue to today’s story →',showLearn))})}
+function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{const ok=a===w.a;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;petReact(ok?'celebrate':'encourage');$('feedback').append(button('Continue to today’s story →',showLearn))})}
 function showLearn(){setPhase('learn');const t=TOPICS[current];$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">📖 STORY</p><h2>${t.story}</h2>${t.teach}`;$('interaction').append(button('🎬 Need a slower GIF walkthrough →',showBoostPath,'btn alt'));$('interaction').append(button('I watched & understand — guided practice →',showGuided))}
-function showGuided(){setPhase('guided');const g=TOPICS[current].guided;$('lessonBody').innerHTML=`<h2>🖐️ Guided Practice</h2><p class="concept">${g.prompt}</p><p class="small">Drag a tile into the target, or tap a tile on iPad.</p>`;$('feedback').innerHTML='';$('interaction').innerHTML=`<div class="tokens">${g.tokens.map(x=>`<div class="token" draggable="true" data-v="${esc(x)}">${x}</div>`).join('')}</div><div class="targets"><div id="dropTarget" class="target">DROP / TAP ANSWER</div></div>`;const check=v=>{if(v===g.answer){$('dropTarget').textContent=v;$('feedback').innerHTML=`<div class="feedback good">✨ Correct. ${g.explain}</div><div class="celebrate">⭐ ✅ 🎉</div>`;$('feedback').append(button('Start independent practice →',showPractice))}else{$('feedback').innerHTML=`<div class="feedback bad">🌱 Not yet. ${g.explain} Try again until you make it right.</div><div class="retry">🤔 ↩️ 💡</div>`}};document.querySelectorAll('.token').forEach(el=>{el.onclick=()=>check(el.dataset.v);el.ondragstart=e=>e.dataTransfer.setData('text',el.dataset.v)});$('dropTarget').ondragover=e=>e.preventDefault();$('dropTarget').ondrop=e=>{e.preventDefault();check(e.dataTransfer.getData('text'))}}
+function showGuided(){setPhase('guided');const g=TOPICS[current].guided;$('lessonBody').innerHTML=`<h2>🖐️ Guided Practice</h2><p class="concept">${g.prompt}</p><p class="small">Drag a tile into the target, or tap a tile on iPad.</p>`;$('feedback').innerHTML='';$('interaction').innerHTML=`<div class="tokens">${g.tokens.map(x=>`<div class="token" draggable="true" data-v="${esc(x)}">${x}</div>`).join('')}</div><div class="targets"><div id="dropTarget" class="target">DROP / TAP ANSWER</div></div>`;const check=v=>{if(v===g.answer){$('dropTarget').textContent=v;$('feedback').innerHTML=`<div class="feedback good">✨ Correct. ${g.explain}</div><div class="celebrate">⭐ ✅ 🎉</div>`;petReact('celebrate');$('feedback').append(button('Start independent practice →',showPractice))}else{$('feedback').innerHTML=`<div class="feedback bad">🌱 Not yet. ${g.explain} Try again until you make it right.</div><div class="retry">🤔 ↩️ 💡</div>`;petReact('encourage')}};document.querySelectorAll('.token').forEach(el=>{el.onclick=()=>check(el.dataset.v);el.ondragstart=e=>e.dataTransfer.setData('text',el.dataset.v)});$('dropTarget').ondragover=e=>e.preventDefault();$('dropTarget').ondrop=e=>{e.preventDefault();check(e.dataTransfer.getData('text'))}}
 function showMasteryRecap(){setPhase('learn');const t=TOPICS[current],goal=practiceGoal();$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">♻️ MASTERY REPLAY · Union County / NC Grade 7 retention</p><h2>${t.icon} Day ${current+1} Recap: ${t.title}</h2><p class="concept">${t.story}</p>${t.teach}<p class="small">Parent/Admin mastery target for completed days: <b>${goalLabel(goal)}</b> questions this visit (advanced 2·4·4 mix). Keep skills sharp without redoing the unlock gate.</p>`;$('interaction').append(button('🎬 GIF boost steps first →',showBoostPath,'btn alt'));$('interaction').append(button('Start advanced mastery practice →',showPractice))}
 function showOpenRecap(){
   setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';
@@ -352,9 +382,10 @@ function creditAttempt(id,ok,problem){
     S.mastery[id]=updateMastery(S.mastery[id],true);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],true);
     const multNote=reward.mult>1?` · streak ×${reward.mult}`:'';
     $('feedback').innerHTML=`<div class="feedback good">🎉 Correct! ${problem.explain} +${reward.xp} XP · +${reward.coins} 🪙${multNote}</div><div class="celebrate">🌟 🎉 ✅</div>`;
-  }else{S.streak=0;S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});$('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div><div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts"><button data-e="Sign">Sign</button><button data-e="Operation">Operation</button><button data-e="Arithmetic">Arithmetic</button><button data-e="Not sure">Not sure</button></div>`;document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'})}
+    petReact('celebrate');
+  }else{S.streak=0;S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});$('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div><div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts"><button data-e="Sign">Sign</button><button data-e="Operation">Operation</button><button data-e="Arithmetic">Arithmetic</button><button data-e="Not sure">Not sure</button></div>`;document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'});petReact('encourage')}
 }
-function benchCheck(v){const id=activeTopicId(),ok=String(v)===String(q.a);creditAttempt(id,ok,q);save();setPhase('practice');const last=bench.idx>=bench.items.length-1;$('feedback').append(button(last?'See error analysis →':'Next question →',()=>{if(last)benchSummary();else{bench.idx++;showBenchQuestion()}}))}
+function benchCheck(v){const id=activeTopicId(),ok=String(v)===String(q.a);creditAttempt(id,ok,q);save();setPhase('practice');petReact(ok?'celebrate':'encourage');const last=bench.idx>=bench.items.length-1;$('feedback').append(button(last?'See error analysis →':'Next question →',()=>{if(last)benchSummary();else{bench.idx++;showBenchQuestion()}}))}
 function sessionGoalMet(){const goal=practiceGoal(),gained=S.attempts[activeTopicId()].n-sessionPracticeStart;return goal===0||gained>=goal}
 function insightSummaryHtml(insights){
   const weak=insights.improvements.slice(0,3).map(r=>`Day ${TOPICS.indexOf(r.topic)+1}: ${r.topic.title}`).join(' · ')||'none yet';

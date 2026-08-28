@@ -9,6 +9,17 @@ export const COINS_DAY_CLEAR=100;
 export const COINS_BREAK_BONUS=25;
 export const REALM_PREVIEW_MS=3500;
 export const COMPANION_BUILDING_LIMIT=4;
+/** Free starter companion for every learner (cosmetic; never unlocks lessons). */
+export const DEFAULT_PET_ID='fox';
+
+/** Ensure every account has the starter pet equipped (idempotent migration). */
+export function ensureDefaultPet(state){
+  if(!state||typeof state!=='object')return state;
+  if(!Array.isArray(state.pets))state.pets=[];
+  if(!state.pets.includes(DEFAULT_PET_ID))state.pets=[DEFAULT_PET_ID,...state.pets];
+  if(!state.activePet||!state.pets.includes(state.activePet))state.activePet=DEFAULT_PET_ID;
+  return state;
+}
 
 /** Streak after a correct answer → coin multiplier (XP stays flat). */
 export function streakCoinMultiplier(streakAfterCorrect){

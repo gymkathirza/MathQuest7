@@ -19,11 +19,9 @@ The CI workflow enforces this rule for these production-facing files:
 - `js/coach-visuals.mjs`
 - `js/rewards.mjs`
 - `js/seasonal.mjs`
-- `sw.js`
-- `manifest.webmanifest`
-- `icon.svg`
-- `config.js`
 - files under `assets/realm/` (My Realm isometric art cached by the service worker)
+- files under `assets/seasonal/` (seasonal banner art)
+- `sw.js`
 
 Documentation-only, test-only, and CI-only changes do not require a version bump unless they also change deployed application behavior.
 
