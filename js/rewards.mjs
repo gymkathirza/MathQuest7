@@ -125,12 +125,20 @@ export function companionStripView(state,preview=null){
 }
 
 /** Parent/Admin local coin grant (cosmetic only — never unlocks lessons). */
-export function awardParentCoins(state,amount){
+export function awardParentCoins(state,amount,{at=Date.now()}={}){
   const n=Math.floor(Number(amount));
   if(!Number.isFinite(n)||n<=0)return{ok:false,reason:'Enter a positive coin amount',coins:0,total:Number(state.coins)||0};
   if(n>10000)return{ok:false,reason:'Award at most 10,000 coins at once',coins:0,total:Number(state.coins)||0};
   state.coins=(Number(state.coins)||0)+n;
-  return{ok:true,coins:n,total:state.coins};
+  if(!Array.isArray(state.parentCoinAwards))state.parentCoinAwards=[];
+  state.parentCoinAwards.push({at,amount:n,total:state.coins});
+  if(state.parentCoinAwards.length>20)state.parentCoinAwards=state.parentCoinAwards.slice(-20);
+  return{ok:true,coins:n,total:state.coins,log:state.parentCoinAwards};
+}
+
+export function parentCoinAwardRows(state,limit=8){
+  const rows=Array.isArray(state.parentCoinAwards)?state.parentCoinAwards:[];
+  return rows.slice(-limit).reverse();
 }
 
 export function canBuyBuilding(state,buildingId){

@@ -18,6 +18,7 @@ The CI workflow enforces this rule for these production-facing files:
 - `js/learner-insights.mjs`
 - `js/coach-visuals.mjs`
 - `js/rewards.mjs`
+- `js/seasonal.mjs`
 - `sw.js`
 - `manifest.webmanifest`
 - `icon.svg`
