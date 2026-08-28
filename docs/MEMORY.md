@@ -43,7 +43,8 @@ The experience should:
 - Owned active pet and recent buildings appear in a non-interactive **corner companion strip** on Home and during practice; Home **Free Preview** may temporarily ghost-preview items in that strip (practice strip stays owned-only)
 - Parent/Admin may **award cosmetic coins** locally (presets/custom with confirm); awards append `state.parentCoinAwards` (local audit trail); coins never unlock lessons
 - My Realm store uses **Buildings / Pet Store / Pet Skins** tabs; **Free Preview** is always available (even with 0 coins) and never spends currency
-- Seasonal Home banners are local/offline (`js/seasonal.mjs`), dismissible per season, never gate lessons, and respect `prefers-reduced-motion`
+- Seasonal Home banners are local/offline (`js/seasonal.mjs`), dismissible per season, never gate lessons, and respect `prefers-reduced-motion`; seasonal star motion stays inside the banner
+- Every account receives a free starter pet (Integer Fox); pets remain cosmetic and may react with local CSS animations during learning phases / answers
 - after the 20-day spine is cleared, unlock an **Open-Ended Mastery Quest** that recaps all NC.7 domains and offers endless mixed advanced practice (harder 2·4·4 tier mix) so learning continues without boredom
 - Parent/Admin may set a separate **mastery replay target** (10/20/40/unlimited) controlling how much practice is expected when revisiting completed days or the open-ended quest; this does not replace the first-time Exit Ticket practice target
 - Parent/Admin and student UIs share a **strengths / improvements / improvement-plan** insight model derived from mastery, accuracy, and the error log; open-ended fine-tuning can be **auto**, **manual** (parent pins), or **blend**

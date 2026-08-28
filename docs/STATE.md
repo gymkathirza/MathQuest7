@@ -6,8 +6,8 @@ Do not store secrets, credentials, learner records, parent emails, or other PII 
 
 ## Current production release
 
-- Version: `0.22.0`
-- Release label: `harden-delight-seasonal`
+- Version: `0.23.0`
+- Release label: `banner-stars-pet-react`
 - Production branch: `main`
 - Hosting: GitHub Pages
 - Repository: `gymkathirza/MathQuest7`
@@ -44,7 +44,8 @@ Current design includes:
 - header badges: hero title, XP, coins, streak, active daily practice-minutes timer, and app version, each with a hover/focus help tooltip. The version badge fetches `version.json` network-first through the service worker so it always reflects the deployed version
 - **My Realm** cosmetic shop with clear tabs (**Buildings**, **Pet Store**, **Pet Skins**): free **Preview** always works (even with 0 coins) and shows the item in the **bottom-right companion strip** on Home (same art language as practice) for ~3.5s, while the realm stage still updates; 12 buildings, 5 pets, pet skins. Shop/stage/strip use **isometric SVG art** (project-generated, vendored under `assets/realm/`). Owned active pet + recent buildings appear in a non-interactive **corner companion strip** on Home and during Learn/practice. Coins from correct answers (streak multiplies coins only), day clears (+100), completed healthy breaks (+25), and **Parent/Admin Award coins** (local presets/custom). Learners who cleared days before day-clear coins were tracked can use a one-time home **Claim missed day-clear coins** banner (`state.dayClearCoinClaimed`); live clears mark the day so it is not reclaimable. Rewards never unlock lessons or skip mastery
 - Parent / Admin trophies row plus coins stat alongside XP/accuracy; **Award coins** card (50/100/200 presets + custom with confirm) persists via `save()` / `S.coins` only and appends a local `parentCoinAwards` audit log (last 20) shown on the dashboard
-- **Seasonal Home banner** (`js/seasonal.mjs`): dismissible local seasons (first: **Back to school!** in Aug–Sep) with rotating cheer lines and an optional CSS star shower (`prefers-reduced-motion` safe; offline; no CDN)
+- **Seasonal Home banner** (`js/seasonal.mjs`): dismissible local seasons (first: **Back to school!** in Aug–Sep) with rotating cheer lines; star shower/art is confined to the **banner tray** (not full-page); `prefers-reduced-motion` safe; offline; no CDN
+- Every learner receives a free starter pet (`DEFAULT_PET_ID` Integer Fox via `ensureDefaultPet`); companion strip pet uses CSS “GIF-style” reactions across warm-up/learn/guided/practice/review/exit and after answers (celebrate / encourage / think / nudge)
 - Parent / Admin portal (renamed from "Parent"), PIN-gated: overall progress, Strengths, Improvements (GIF-style step previews, read-only), Improvement plan (read-only; no Practice buttons), Mastery review, miss-based focus areas, week mastery, syllabus coverage gap notes, Exit Ticket volume, mastery-replay target, open-ended focus mode (auto/blend/manual), and day pin checkboxes. Export/change PIN/reset/clear retained
 - student home coaching plan card: positive praise + celebration animations for strengths; improvement plan with GIF step previews; **Practice Day N with GIF steps** (student-only) opens a granular boost walkthrough then practice; scores/mastery update and strengths/improvements recalibrate after each save
 - hover/focus helper tooltips on the header badges (XP, streak, timer, version), hero buttons, phase steps, and day tiles
