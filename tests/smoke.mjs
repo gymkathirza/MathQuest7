@@ -46,7 +46,9 @@ assert.ok(/previewRealmItem|buyPet|realmTab|Pet Store|Free Preview|renderCompani
 assert.ok(/awardParentCoins|applyParentCoinAward|data-award-coins|awardCoinsBtn/.test(appSource),'UI must wire Parent/Admin award-coins control');
 assert.ok(swSource.includes('seasonal.mjs'),'Service worker must cache seasonal.mjs');
 assert.ok(/from ['"]\.\/seasonal\.mjs['"]/.test(appSource),'UI must import seasonal banner helpers');
-assert.ok(/renderSeasonalBanner|seasonStarTray|petReact|ensureDefaultPet/.test(appSource),'UI must render banner stars and pet reactions with default pet');
+assert.ok(/renderSeasonalBanner|seasonStarTray|seasonStarRow|petReact|applyPetReact|ensureDefaultPet/.test(appSource),'UI must render banner stars and pet reactions with default pet');
+assert.ok(!indexSource.includes('id="starShower"'),'Full-page starShower mount must be removed');
+assert.ok(/answerReact/.test(appSource),'Practice answers must pass answerReact into setPhase so pet reaction survives save/re-render');
 assert.ok(indexSource.includes('seasonalBanner'),'Home must include seasonal banner mount');
 assert.ok(swSource.includes('assets/seasonal/'),'Service worker must cache seasonal assets');
 assert.equal(DEFAULT_PET_ID,'fox');
@@ -56,7 +58,6 @@ assert.deepEqual(migrated.pets,['fox']);
 assert.equal(migrated.activePet,'fox');
 ensureDefaultPet(migrated);
 assert.equal(migrated.pets.filter(id=>id==='fox').length,1,'Default pet grant is idempotent');
-assert.ok(indexSource.includes('starShower'),'Home must include star shower layer');
 assert.ok(indexSource.includes('parentCoinAwardLog'),'Parent panel must show coin award log');
 assert.ok(SEASONS.some(s=>s.id==='back_to_school'),'Back to school season must be defined');
 assert.equal(activeSeason(new Date(2026,7,15))?.id,'back_to_school');

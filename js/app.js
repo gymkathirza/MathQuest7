@@ -12,7 +12,8 @@ const PET_REACT_MS=1600;
 const PHASE_PET_REACT={warmup:'think',learn:'think',guided:'nudge',practice:'idle',review:'cheer',exit:'cheer'};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
 function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[DEFAULT_PET_ID],petSkins:[],activePet:DEFAULT_PET_ID,activePetSkin:null,breaksCompleted:0,parentCoinAwards:[]}}
-let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,petReactTimer=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null;
+let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,petReactTimer=null,pendingPetReact=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null;
+
 function loadState(){let parsed;try{parsed=JSON.parse(localStorage.mq7summer||'null')}catch{}const s=parsed||defaultState();s.mastery=s.mastery||{};s.attempts=s.attempts||{};s.cleared=s.cleared||{};s.settings={...defaultSettings(),...(s.settings||{})};if(s.settings.masteryReplayTarget==null)s.settings.masteryReplayTarget=20;if(!FOCUS_MODES.includes(s.settings.focusMode))s.settings.focusMode='blend';if(!Array.isArray(s.settings.focusTopicIds))s.settings.focusTopicIds=[];s.errorLog=s.errorLog||[];s.masteryPracticeByDay=s.masteryPracticeByDay&&typeof s.masteryPracticeByDay==='object'?s.masteryPracticeByDay:{};s.masterySessionMs=Number(s.masterySessionMs)||0;s.coins=Number(s.coins)||0;s.breaksCompleted=Number(s.breaksCompleted)||0;s.dayClearCoinClaimed=s.dayClearCoinClaimed&&typeof s.dayClearCoinClaimed==='object'?s.dayClearCoinClaimed:{};s.parentCoinAwards=Array.isArray(s.parentCoinAwards)?s.parentCoinAwards:[];s.realm=Array.isArray(s.realm)?s.realm:[];s.pets=Array.isArray(s.pets)?s.pets:[];s.petSkins=Array.isArray(s.petSkins)?s.petSkins:[];ensureDefaultPet(s);if(s.activePet&&!s.pets.includes(s.activePet))s.activePet=s.pets[0]||null;if(s.activePetSkin&&!s.petSkins.includes(s.activePetSkin))s.activePetSkin=null;delete s.sessionStart;ensurePracticeDay(s);for(const t of TOPICS){if(s.mastery[t.id]==null)s.mastery[t.id]=0;if(!s.attempts[t.id])s.attempts[t.id]={n:0,c:0};if(s.cleared[t.id]==null)s.cleared[t.id]=false}if(s.mastery[OPEN_ENDED_ID]==null)s.mastery[OPEN_ENDED_ID]=0;if(!s.attempts[OPEN_ENDED_ID])s.attempts[OPEN_ENDED_ID]={n:0,c:0};return s}
 function save(){syncPracticeDay();localStorage.mq7summer=JSON.stringify(S);renderTop();refreshInsightPanels();if(onHome())renderRealm();renderCompanionStrip()}
 function artMarkup(entry){
@@ -36,63 +37,53 @@ function renderCompanionStrip(){
   if(!view.visible){el.classList.add('hidden');el.innerHTML='';el.setAttribute('aria-hidden','true');return}
   el.classList.remove('hidden');el.setAttribute('aria-hidden','false');
   if(view.isPreview)el.classList.add('previewing');else el.classList.remove('previewing');
-  const pet=view.pet?`<div class="companionPet${view.petGhost?' ghost pulse':''}" title="${esc(view.pet.name)}">${artMarkup(view.pet)}</div>`:'';
+  const pet=view.pet?`<div class="companionPet${view.petGhost?' ghost pulse':''}" title="${esc(view.pet.name)}">${artMarkup(view.pet)}<span class="petReactBubble" hidden></span></div>`:'';
   const builds=view.buildings.map(b=>`<div class="companionPlot" title="${esc(b.name)}">${artMarkup(b)}</div>`).join('');
   const ghost=view.ghostBuilding?`<div class="companionPlot ghost pulse" title="Free preview">${artMarkup(view.ghostBuilding)}</div>`:'';
   const more=view.overflow?`<div class="companionMore">+${view.overflow}</div>`:'';
   const banner=view.previewLabel?`<div class="companionPreviewLabel">${esc(view.previewLabel)} · free</div>`:'';
   el.innerHTML=`<div class="companionInner">${banner}${pet}${builds}${ghost}${more}</div>`;
   bindArtFallbacks(el);
+  if(pendingPetReact){
+    const kind=pendingPetReact;pendingPetReact=null;
+    requestAnimationFrame(()=>applyPetReact(kind));
+  }
 }
 function petReact(kind='idle'){
-  if(prefersReducedMotion())return;
+  pendingPetReact=kind;
+  if($('realmCompanion')?.querySelector('.companionPet')){
+    const k=pendingPetReact;pendingPetReact=null;
+    applyPetReact(k);
+  }else{
+    renderCompanionStrip();
+  }
+}
+function applyPetReact(kind='idle'){
   const pet=$('realmCompanion')?.querySelector('.companionPet');
   if(!pet)return;
   const classes=['react-celebrate','react-encourage','react-think','react-nudge','react-cheer','react-idle'];
   pet.classList.remove(...classes);
   void pet.offsetWidth;
-  const cls={
-    celebrate:'react-celebrate',
-    correct:'react-celebrate',
-    encourage:'react-encourage',
-    wrong:'react-encourage',
-    think:'react-think',
-    nudge:'react-nudge',
-    cheer:'react-cheer',
-    idle:'react-idle'
-  }[kind]||'react-idle';
-  pet.classList.add(cls);
+  const map={celebrate:'react-celebrate',correct:'react-celebrate',encourage:'react-encourage',wrong:'react-encourage',think:'react-think',nudge:'react-nudge',cheer:'react-cheer',idle:'react-idle'};
+  const cls=map[kind]||'react-idle';
+  const bubble=pet.querySelector('.petReactBubble');
+  const bubbleText={celebrate:'🌟',correct:'🌟',encourage:'💪',wrong:'💪',think:'💭',nudge:'👋',cheer:'🎉',idle:'✨'}[kind]||'✨';
+  if(bubble){bubble.hidden=false;bubble.textContent=bubbleText;bubble.classList.add('show')}
+  if(!prefersReducedMotion())pet.classList.add(cls);
   clearTimeout(petReactTimer);
-  petReactTimer=setTimeout(()=>pet.classList.remove(...classes),PET_REACT_MS);
+  petReactTimer=setTimeout(()=>{
+    pet.classList.remove(...classes);
+    if(bubble){bubble.classList.remove('show');bubble.hidden=true}
+  },PET_REACT_MS);
 }
 function stopStarShower(){
   clearInterval(cheerTimer);cheerTimer=null;
   const box=$('seasonalBanner');
   if(box?._cheerRotate){clearInterval(box._cheerRotate);box._cheerRotate=null}
-  const tray=$('seasonStarTray');
-  if(tray){tray.querySelectorAll('.seasonSpark').forEach(n=>n.remove())}
-  const layer=$('starShower');if(layer){layer.innerHTML='';layer.classList.add('hidden')}
 }
 function startStarShower(){
-  // Stars live inside the seasonal banner tray (not full-page).
-  const tray=$('seasonStarTray');
+  // No full-page shower — stars are HTML inside the seasonal banner only.
   clearInterval(cheerTimer);cheerTimer=null;
-  const page=$('starShower');if(page){page.innerHTML='';page.classList.add('hidden')}
-  if(!tray||prefersReducedMotion())return;
-  const spawn=()=>{
-    if(!onHome()||document.visibilityState==='hidden'||!$('seasonalBanner')||$('seasonalBanner').classList.contains('hidden'))return;
-    const spark=document.createElement('span');
-    spark.className='seasonSpark';
-    spark.textContent=['✨','⭐','🌟'][Math.floor(Math.random()*3)];
-    spark.style.left=`${8+Math.random()*55}%`;
-    spark.style.animationDuration=`${1.6+Math.random()*1.4}s`;
-    const layer=tray.querySelector('.seasonSparkLayer')||tray;
-    layer.appendChild(spark);
-    setTimeout(()=>spark.remove(),3200);
-    while(layer.querySelectorAll('.seasonSpark').length>14)layer.querySelector('.seasonSpark')?.remove();
-  };
-  for(let i=0;i<5;i++)spawn();
-  cheerTimer=setInterval(spawn,520);
 }
 function renderSeasonalBanner(){
   const box=$('seasonalBanner');if(!box)return;
@@ -103,10 +94,9 @@ function renderSeasonalBanner(){
   box.classList.remove('hidden');
   const cheers=season.cheers.map((c,i)=>`<div class="seasonCheer ${i===0?'on':''}" data-cheer="${i}">${esc(c)}</div>`).join('');
   const starArt=new URL('../assets/seasonal/star-row.png',import.meta.url).href;
-  box.innerHTML=`<div class="seasonBannerInner"><div class="seasonBadge">🎒 Season</div><h2>${esc(season.headline)}</h2><p class="small">${esc(season.blurb)}</p><div class="seasonCheerTrack" id="seasonCheerTrack">${cheers}</div><button type="button" class="btn alt" id="dismissSeasonBtn">Dismiss for now</button></div><div class="seasonStarTray" id="seasonStarTray" aria-hidden="true"><img class="seasonStarArt" src="${starArt}" alt=""><div class="seasonSparkLayer"></div></div>`;
+  box.innerHTML=`<div class="seasonBannerInner"><div class="seasonBadge">🎒 Season</div><h2>${esc(season.headline)}</h2><p class="small">${esc(season.blurb)}</p><div class="seasonCheerTrack" id="seasonCheerTrack">${cheers}</div><div class="seasonStarTray" id="seasonStarTray" aria-hidden="true"><img class="seasonStarArt" src="${starArt}" alt=""><div class="seasonStarRow">🌟⭐✨🌟⭐✨🌟⭐✨🌟⭐✨🌟⭐✨</div></div><button type="button" class="btn alt" id="dismissSeasonBtn">Dismiss for now</button></div>`;
   const dismiss=$('dismissSeasonBtn');
   if(dismiss)dismiss.onclick=()=>{dismissSeason(season.id);renderSeasonalBanner();showToast('Banner hidden for this season. Keep practicing!',3500)};
-  startStarShower();
   let idx=0;
   if(!prefersReducedMotion()){
     box._cheerRotate=setInterval(()=>{
@@ -145,7 +135,7 @@ function go(id){
   if(id!=='parent'){noteActivity();resumePractice()}
   renderCompanionStrip();
 }
-async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version }catch{$('versionBadge').textContent='v0.23.0'}}function currentInsights(){return analyzeLearner(S)}
+async function loadVersion(){try{const r=await fetch(new URL('../version.json?ts='+Date.now(),import.meta.url),{cache:'no-store'}),d=await r.json();$('versionBadge').textContent='v'+d.version  }catch{$('versionBadge').textContent='v0.23.1'}}function currentInsights(){return analyzeLearner(S)}
 function activeTopicId(){return sessionMode==='open'?OPEN_ENDED_ID:TOPICS[current].id}
 function practiceGoal(){return sessionMode==='learn'?S.settings.practiceTarget:S.settings.masteryReplayTarget}
 function goalLabel(n){return n===0?'∞':String(n)}
@@ -340,12 +330,13 @@ function endBreak(){
   $('breakMsg').textContent=`Great job taking a healthy break. Your practice timer paused while you rested. Bonus: +${bonus.coins} 🪙 for following the 20–20–20 rule! Ready to keep learning?`;
   showToast(`🧘 Break complete — +${COINS_BREAK_BONUS} coins!`,5000);
 }
-function setPhase(p){
+function setPhase(p,opts={}){
   for(const x of PHASES)$('p'+x[0].toUpperCase()+x.slice(1)).classList.toggle('on',x===p);
   if(sessionMode==='open'){$('topicName').textContent=`${OPEN_ENDED_ICON} ${OPEN_ENDED_TITLE}`;const sess=formatPracticeDuration(masterySessionElapsedMs(S,masteryRunningSince));const today=formatPracticeDuration(masteryDayTotalMs(S,todayKey(),masteryRunningSince));$('masteryPill').textContent=`Visit ${sess} · Today ${today}`}
   else{$('topicName').textContent=`${sessionMode==='replay'?'♻️ Mastery · ':''}Day ${current+1}: ${TOPICS[current].title}`;$('masteryPill').textContent=`${S.mastery[TOPICS[current].id]}% mastery`}
   renderCompanionStrip();
-  petReact(PHASE_PET_REACT[p]||'idle');
+  if(opts.answerReact)petReact(opts.answerReact);
+  else petReact(PHASE_PET_REACT[p]||'idle');
 }
 function button(label,fn,cls='btn'){const b=document.createElement('button');b.className=cls;b.textContent=label;b.onclick=fn;return b}
 function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{const ok=a===w.a;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;petReact(ok?'celebrate':'encourage');$('feedback').append(button('Continue to today’s story →',showLearn))})}
@@ -382,10 +373,9 @@ function creditAttempt(id,ok,problem){
     S.mastery[id]=updateMastery(S.mastery[id],true);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],true);
     const multNote=reward.mult>1?` · streak ×${reward.mult}`:'';
     $('feedback').innerHTML=`<div class="feedback good">🎉 Correct! ${problem.explain} +${reward.xp} XP · +${reward.coins} 🪙${multNote}</div><div class="celebrate">🌟 🎉 ✅</div>`;
-    petReact('celebrate');
-  }else{S.streak=0;S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});$('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div><div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts"><button data-e="Sign">Sign</button><button data-e="Operation">Operation</button><button data-e="Arithmetic">Arithmetic</button><button data-e="Not sure">Not sure</button></div>`;document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'});petReact('encourage')}
+  }else{S.streak=0;S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});$('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div><div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts"><button data-e="Sign">Sign</button><button data-e="Operation">Operation</button><button data-e="Arithmetic">Arithmetic</button><button data-e="Not sure">Not sure</button></div>`;document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'})}
 }
-function benchCheck(v){const id=activeTopicId(),ok=String(v)===String(q.a);creditAttempt(id,ok,q);save();setPhase('practice');petReact(ok?'celebrate':'encourage');const last=bench.idx>=bench.items.length-1;$('feedback').append(button(last?'See error analysis →':'Next question →',()=>{if(last)benchSummary();else{bench.idx++;showBenchQuestion()}}))}
+function benchCheck(v){const id=activeTopicId(),ok=String(v)===String(q.a);creditAttempt(id,ok,q);save();setPhase('practice',{answerReact:ok?'celebrate':'encourage'});const last=bench.idx>=bench.items.length-1;$('feedback').append(button(last?'See error analysis →':'Next question →',()=>{if(last)benchSummary();else{bench.idx++;showBenchQuestion()}}))}
 function sessionGoalMet(){const goal=practiceGoal(),gained=S.attempts[activeTopicId()].n-sessionPracticeStart;return goal===0||gained>=goal}
 function insightSummaryHtml(insights){
   const weak=insights.improvements.slice(0,3).map(r=>`Day ${TOPICS.indexOf(r.topic)+1}: ${r.topic.title}`).join(' · ')||'none yet';
@@ -484,7 +474,6 @@ $('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('ma
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){
     pausePractice();
-    if(cheerTimer){clearInterval(cheerTimer);cheerTimer=null}
   }else{
     noteActivity();
     resumePractice();
