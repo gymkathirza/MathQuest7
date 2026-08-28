@@ -175,6 +175,8 @@ When a test uncovers a rare generator defect, fix the generator rather than weak
 
 Files are grouped by category rather than dumped at the repo root: `css/` for styles, `js/` for ES-module app logic, `docs/` for documentation and contracts, `tests/` for automated tests. The GitHub Pages web-root PWA files (`index.html`, `sw.js`, `manifest.webmanifest`, `icon.svg`, `config.js`, `version.json`, `PRIVACY.md`) are intentionally kept at the repository root because the deployed site URL and the service-worker scope depend on them being there. This grouping should be preserved; see `.cursor/rules/mathquest-maintenance.mdc` and `AGENTS.md` for the enforced conventions.
 
+Optional publishable libraries live under `packages/` (e.g. `@gymkathirza/mathquest7-session`). Prefer small MIT-licensed pure ES module surfaces over packaging the whole PWA. npm package versions are independent of PWA `version.json`. Prefer GitHub Packages for `@gymkathirza/*` scopes; never commit registry tokens.
+
 ## Handoff philosophy
 
 Future agents should be able to begin from the repository alone. Read `AGENTS.md` first, then `docs/STATE.md`, followed by the detailed curriculum/privacy/versioning contracts in `docs/`.

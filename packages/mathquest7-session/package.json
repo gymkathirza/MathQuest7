@@ -1,0 +1,54 @@
+{
+  "name": "@gymkathirza/mathquest7-session",
+  "version": "0.1.0-pre.0",
+  "description": "Pre-release Grade 7 math session helpers from MathQuest 7: curriculum generators, daily 3/4/3 benchmark builders, and practice-timer utilities (pure ES modules, no DOM).",
+  "type": "module",
+  "license": "MIT",
+  "author": "gymkathirza",
+  "keywords": [
+    "math",
+    "grade-7",
+    "curriculum",
+    "education",
+    "session",
+    "benchmark",
+    "north-carolina"
+  ],
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/gymkathirza/MathQuest7.git",
+    "directory": "packages/mathquest7-session"
+  },
+  "bugs": {
+    "url": "https://github.com/gymkathirza/MathQuest7/issues"
+  },
+  "homepage": "https://github.com/gymkathirza/MathQuest7/tree/main/packages/mathquest7-session",
+  "files": [
+    "index.mjs",
+    "curriculum.mjs",
+    "daily-session.mjs",
+    "practice-timer.mjs",
+    "LICENSE",
+    "README.md"
+  ],
+  "exports": {
+    ".": "./index.mjs",
+    "./curriculum": "./curriculum.mjs",
+    "./daily-session": "./daily-session.mjs",
+    "./practice-timer": "./practice-timer.mjs",
+    "./package.json": "./package.json"
+  },
+  "main": "./index.mjs",
+  "module": "./index.mjs",
+  "scripts": {
+    "test": "node ./test/smoke.mjs",
+    "prepublishOnly": "node ./test/smoke.mjs"
+  },
+  "publishConfig": {
+    "registry": "https://npm.pkg.github.com",
+    "access": "public"
+  },
+  "engines": {
+    "node": ">=18"
+  }
+}
