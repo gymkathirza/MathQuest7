@@ -74,8 +74,10 @@ function escText(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt
 
 export function boostPathHtml(topic,{positiveLead=''}={}){
   const day=TOPICS.indexOf(topic)+1;
-  const steps=boostStepsForTopic(topic.id).map((s,i)=>`<div class="boostStep"><div class="boostNum">Step ${i+1}</div><p class="concept">${escText(s.caption)}</p>${s.visual}</div>`).join('');
-  return`<p class="small">🎬 GIF-style boost path for Day ${day}</p>
+  const list=boostStepsForTopic(topic.id);
+  const total=list.length;
+  const steps=list.map((s,i)=>`<div class="boostStep"><div class="boostNum">Step ${i+1} of ${total}</div><p class="concept">${escText(s.caption)}</p>${s.visual}</div>`).join('');
+  return`<p class="small">🎬 GIF-style boost path for Day ${day} · ${total} steps</p>
 <h2>${topic.icon} Let’s fine-tune: ${escText(topic.title)}</h2>
 ${positiveLead?`<div class="praiseBanner"><div class="gifFrame praise praiseBounce"><div class="celebrate">🌟 🎉 ⭐</div></div><p class="concept">${escText(positiveLead)}</p></div>`:''}
 <p class="concept">Here is a slower, clearer walkthrough before you practice. Watch each animated step, then try it yourself.</p>

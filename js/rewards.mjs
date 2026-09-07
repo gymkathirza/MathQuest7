@@ -277,14 +277,111 @@ export function realmStageView(state,preview=null){
   };
 }
 
+/** XP thresholds for hero titles (ascending). */
+export const HERO_TITLE_TIERS=[
+  {min:0,title:'New Adventurer'},
+  {min:300,title:'Practice Apprentice'},
+  {min:800,title:'Skill Scout'},
+  {min:1500,title:'Quest Captain'},
+  {min:3000,title:'Master Pathfinder'},
+  {min:5000,title:'Realm Champion'}
+];
+
 export function heroTitle(xp){
   const n=Math.max(0,Number(xp)||0);
-  if(n>=5000)return 'Realm Champion';
-  if(n>=3000)return 'Master Pathfinder';
-  if(n>=1500)return 'Quest Captain';
-  if(n>=800)return 'Skill Scout';
-  if(n>=300)return 'Practice Apprentice';
-  return 'New Adventurer';
+  let title=HERO_TITLE_TIERS[0].title;
+  for(const t of HERO_TITLE_TIERS){if(n>=t.min)title=t.title}
+  return title;
+}
+
+/** True when XP crossed a heroTitle() tier boundary (inclusive of the new tier min). */
+export function heroTitleLevelUp(prevXp,newXp){
+  const from=heroTitle(prevXp),to=heroTitle(newXp);
+  return{leveled:from!==to,from,to};
+}
+
+/** Correct-answer coin burst markup for the feedback card (A1). */
+export function formatCoinBurstHtml(coins,mult=1){
+  const n=Math.max(0,Math.round(Number(coins)||0));
+  const m=Number(mult)||1;
+  const bonus=m>1?` <span class="streakBonus">Streak bonus ×${m}!</span>`:'';
+  return`<span class="coinBurst">+${n} 🪙</span>${bonus}`;
+}
+
+/** Exit-ticket cleared badge text for parent mastery rows (B9). */
+export function exitTicketBadge(cleared){
+  return cleared===true?'✓ passed':'✗ not yet';
+}
+
+/** Live unlock-gate line for practice / exit (A10). */
+export function unlockProgressLine(mastery,cleared,passMastery=80){
+  const m=Math.max(0,Number(mastery)||0);
+  const need=Math.max(0,Number(passMastery)||80);
+  const mast=m>=need?`✓ Mastery ${m}%`:`Mastery ${m}% (need ≥${need}%)`;
+  const exit=cleared===true?'✓ Exit passed':'✗ Exit not yet';
+  return`${mast} · ${exit}`;
+}
+
+/** Rough active-practice time estimate for parent target knobs (B8). */
+export function estimatePracticeMinutes(target){
+  const n=Number(target);
+  if(n===0)return'≈ open-ended';
+  if(n===10)return'≈15–25 min';
+  if(n===20)return'≈30–45 min';
+  if(n===40)return'≈60–90 min';
+  if(!Number.isFinite(n)||n<0)return'';
+  return`≈${Math.round(n*1.5)}–${Math.round(n*2.5)} min`;
+}
+
+/** Latest practice-ish timestamp from local logs (errorLog / sessionDate / mastery days). */
+export function lastPracticeTimestamp(state){
+  let latest=null;
+  for(const e of state?.errorLog||[]){
+    const t=Date.parse(e.when);
+    if(Number.isFinite(t)&&(latest==null||t>latest))latest=t;
+  }
+  if(state?.sessionDate){
+    const t=Date.parse(`${state.sessionDate}T12:00:00`);
+    if(Number.isFinite(t)&&(latest==null||t>latest))latest=t;
+  }
+  for(const key of Object.keys(state?.masteryPracticeByDay||{})){
+    const t=Date.parse(`${key}T12:00:00`);
+    if(Number.isFinite(t)&&(latest==null||t>latest))latest=t;
+  }
+  return latest;
+}
+
+/** Whole days since last practice signal, or null when unknown (B3). */
+export function daysSinceLastPractice(state,now=Date.now()){
+  const t=lastPracticeTimestamp(state);
+  if(t==null)return null;
+  return Math.max(0,Math.floor((now-t)/(24*60*60*1000)));
+}
+
+/** Read-only cosmetic spend summary for Parent/Admin (B1). */
+export function realmSpendSummary(state){
+  const ownedB=new Set(state?.realm||[]);
+  const ownedP=new Set(state?.pets||[]);
+  const ownedS=new Set(state?.petSkins||[]);
+  let spent=0;
+  const lines=[];
+  for(const b of REALM_BUILDINGS){
+    if(!ownedB.has(b.id))continue;
+    spent+=b.cost;
+    lines.push({kind:'building',id:b.id,name:b.name,cost:b.cost,icon:b.icon});
+  }
+  for(const p of REALM_PETS){
+    if(!ownedP.has(p.id))continue;
+    const cost=p.id===DEFAULT_PET_ID?0:p.cost;
+    spent+=cost;
+    lines.push({kind:'pet',id:p.id,name:p.name,cost,icon:p.icon});
+  }
+  for(const sk of REALM_PET_SKINS){
+    if(!ownedS.has(sk.id))continue;
+    spent+=sk.cost;
+    lines.push({kind:'skin',id:sk.id,name:sk.name,cost:sk.cost,icon:sk.icon});
+  }
+  return{spent,count:lines.length,lines,coinsOnHand:Number(state?.coins)||0};
 }
 
 /** Parent/Admin trophy chips derived from local progress (no cloud). */
