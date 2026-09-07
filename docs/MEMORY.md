@@ -42,6 +42,9 @@ The experience should:
 - My Realm visuals use **project-owned isometric SVG art** under `assets/realm/` (or clearly redistributable CC0/CC-BY packs documented in `assets/realm/LICENSE.md`); no ambiguous marketplace/personal-use assets
 - Owned active pet and recent buildings appear in a non-interactive **corner companion strip** on Home and during practice; Home **Free Preview** may temporarily ghost-preview items in that strip (practice strip stays owned-only)
 - Parent/Admin may **award cosmetic coins** locally (presets/custom with confirm); awards append `state.parentCoinAwards` (local audit trail); coins never unlock lessons
+- Parent/Admin PIN **create and change** require entering the new PIN twice; mismatches use the existing alert / `#pinMsg` live-error pattern
+- Parent mastery views show Exit Ticket **✓ passed / ✗ not yet** beside mastery % using the local `cleared` flag (still require ≥80% mastery for unlock)
+- Correct-answer feedback surfaces a visible coin burst (`+N 🪙`) and streak-bonus text when the streak multiplier > 1; hero-title tier crossings toast politely; constructive streak-reset copy appears inline when a miss clears a streak
 - My Realm store uses **Buildings / Pet Store / Pet Skins** tabs; **Free Preview** is always available (even with 0 coins) and never spends currency
 - Seasonal Home banners are local/offline (`js/seasonal.mjs`), dismissible per season, never gate lessons, and respect `prefers-reduced-motion`; seasonal star motion stays inside the banner
 - Accessibility is a default product rule (`.cursor/rules/mathquest-accessibility.mdc`): prefer native HTML first per W3C Using ARIA; every UI surface must keep landmarks, labeled controls, keyboard-operable practice answers/tokens, sparingly used live regions for feedback/PIN/companion reactions, and dialog focus management for the break overlay — without analytics or PII

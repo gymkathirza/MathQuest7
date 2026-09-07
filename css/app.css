@@ -36,3 +36,14 @@
 button.token{appearance:none;-webkit-appearance:none;font:inherit;color:inherit;text-align:inherit;border:0;cursor:pointer}
 button:focus-visible,.token:focus-visible,.answer:focus-visible,.day.clickable:focus-visible,.realmTab:focus-visible{outline:3px solid #ffe171;outline-offset:2px}
 .phasebar [aria-current="step"]{box-shadow:0 0 0 2px #ffe171}
+
+/* 0.26.0 student/admin UX feedback polish */
+.coinBurstRow{display:flex;flex-wrap:wrap;gap:8px;align-items:center;margin-top:8px;font-weight:900}
+.coinBurst{display:inline-block;background:#ffe171;color:#062038;border-radius:999px;padding:4px 12px;animation:coinBurstPop .55s ease}
+.streakBonus{color:#0b5b2a;font-weight:900}
+.xpBurst{display:inline-block;background:#cfe4ff;color:#0b3a5c;border-radius:999px;padding:4px 10px;font-size:13px}
+.streakReset{margin:8px 0 0;font-weight:800;color:#6d242b}
+.bridge{font-weight:800}
+.unlockProgress{font-weight:800}
+@keyframes coinBurstPop{0%{transform:scale(.6);opacity:.2}60%{transform:scale(1.12);opacity:1}100%{transform:scale(1)}}
+@media(prefers-reduced-motion:reduce){.coinBurst{animation:none}}

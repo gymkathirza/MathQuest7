@@ -16,21 +16,21 @@ The current curriculum structure is organized around the broad Grade 7 mathemati
   - Alchemist's Algebra Lab — expressions, equations, and inequalities.
   - Geometry Forge — scale drawings, circles, area, and related geometry skills.
   - Probability Wilds — sampling, probability, averages, and data reasoning.
-- Immediate feedback after every answer.
+- Immediate feedback after every answer, including a coin burst on correct answers and a gentle streak-reset note when a miss clears the streak.
 - Accessibility baseline: keyboard-friendly controls, landmarks/skip link, ARIA live feedback, and reduced-motion-safe motion (see `.cursor/rules/mathquest-accessibility.mdc`).
 - Explanations after mistakes so the learner can understand the method instead of only seeing the correct answer.
 - Optional hints for difficult problems.
-- XP, coins (streak-boosted), streaks, hero titles, My Realm isometric buildings/pets/skins (with free Preview and a practice-corner companion strip).
+- XP, coins (streak-boosted), streaks, hero titles (toast on title level-up), My Realm isometric buildings/pets/skins (with free Preview and a practice-corner companion strip).
 - Seasonal Home banner (Back to school in Aug–Sep) with encouraging cheer lines and optional star shower (dismissible; reduced-motion safe).
 - A realm-building reward system (coins never unlock lessons or skip mastery).
 - An active daily practice timer (~60-minute pacing target) that pauses on breaks, hidden tabs, and 5+ minutes away, and resets each day.
 - A movement/water/eye-rest checkpoint around the middle of a session.
-- Parent/Admin practice knobs: Exit Ticket volume for new days, plus mastery-replay volume for completed days / open-ended quest.
-- Parent/Admin can Award coins (cosmetic) with a local award history log.
+- Parent/Admin practice knobs: Exit Ticket volume for new days (with ≈ time estimates), plus mastery-replay volume for completed days / open-ended quest; focus-mode “what this means” help.
+- Parent/Admin can Award coins (cosmetic) with a local award history log, and see a read-only realm purchase/spend summary.
 - Open-Ended Mastery Quest after all 20 days (mixed advanced NC.7 practice across the full spine).
 - Strengths / improvements coaching on both the student home and Parent/Admin dashboard (GIF-style step previews; Practice is student-only), with optional parent-pinned fine-tuning for open-ended practice.
 - Open-ended mastery (after Day 20): student header shows yesterday + today active mastery time; Parent/Admin table lists Day 21+ practice hours (active time only; 20-minute break rule retained).
-- Parent dashboard with overall accuracy, problems solved, XP, coins, trophies, best streak, and mastery by math zone.
+- Parent dashboard with overall accuracy, problems solved, XP, coins, trophies, best streak, days since last practiced, Exit Ticket pass/fail beside mastery %, and mastery by math zone.
 - Automatic local progress saving.
 - Progressive Web App (PWA) support so the game can be added to an iPad or phone Home Screen.
 - Offline support after the game has been loaded successfully from the web at least once.
@@ -80,7 +80,7 @@ On the home screen, open **My Realm**. You will see a preview window, then three
 8. As mastery improves, the game increases the challenge level automatically.
 9. Reach the required mastery in one zone to unlock the next zone.
 10. Open **My Realm** → use tabs **Buildings / Pet Store / Pet Skins**. Use **Free Preview** anytime (even with 0 coins), then Adopt/Buy when you can afford it. If a **Claim missed day-clear coins** banner appears, tap it once to collect coins for days you already cleared.
-11. Open **Parent / Admin** to review learning progress, coins, and trophies — and optionally **Award coins** (cosmetic only) to the student.
+11. Open **Parent / Admin** to review learning progress, Exit Ticket pass/fail, coins, realm spend, and trophies — and optionally **Award coins** (cosmetic only) to the student. Creating or changing the PIN requires entering it twice.
 
 The game is intentionally mastery-oriented. Speed is not required, and mistakes are used as learning signals rather than as a reason to heavily penalize the learner.
 

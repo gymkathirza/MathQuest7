@@ -4,12 +4,17 @@ import {BREAK_EVERY_MIN,IDLE_PAUSE_MS,ensurePracticeDay,elapsedPracticeMin,shoul
 import {generateMasteryBenchmark,generateOpenEndedBenchmark,openEndedRecapHtml,openEndedUnlocked,allTopicsCleared,OPEN_ENDED_ID,OPEN_ENDED_TITLE,OPEN_ENDED_ICON,MASTERY_LEVEL_COUNTS} from './mastery-session.mjs';
 import {analyzeLearner,resolveFocusTopicIds,focusModeLabel,formatInsightChip,SYLLABUS_GAPS,FOCUS_MODES} from './learner-insights.mjs';
 import {boostPathHtml,improvementPreviewHtml,strengthsPraiseHtml} from './coach-visuals.mjs';
-import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,ensureDefaultPet,DEFAULT_PET_ID} from './rewards.mjs';
+import {REALM_BUILDINGS,REALM_PETS,REALM_PET_SKINS,awardCorrectRewards,awardDayClearRewards,awardBreakBonus,awardParentCoins,parentCoinAwardRows,buyBuilding,canBuyBuilding,buyPet,canBuyPet,buyPetSkin,canBuyPetSkin,setActivePet,setActivePetSkin,realmStageView,companionStripView,entryArtUrl,computeTrophies,heroTitle,heroTitleLevelUp,formatCoinBurstHtml,exitTicketBadge,unlockProgressLine,daysSinceLastPractice,realmSpendSummary,COINS_BREAK_BONUS,REALM_PREVIEW_MS,petById,dayClearCoinBackfillPreview,claimDayClearCoinBackfill,ensureDefaultPet,DEFAULT_PET_ID} from './rewards.mjs';
 import {shouldShowSeasonalBanner,dismissSeason,prefersReducedMotion} from './seasonal.mjs';
 const $=id=>document.getElementById(id);const PHASES=['warmup','learn','guided','practice','review','exit'];
 const LEVEL_META={standard:{tag:'Level 1: Standard Practice',emoji:'🟢'},complex:{tag:'Level 2: Multi-Step Challenge',emoji:'🟡'},word:{tag:'Level 3: NC Real-World Word Problem',emoji:'🔴'}};
 const PET_REACT_MS=1800;
-const PHASE_PET_REACT={warmup:'think',learn:'think',guided:'nudge',practice:'idle',review:'cheer',exit:'cheer'};
+const PHASE_PET_REACT={warmup:'think',learn:'think',guided:'nudge',practice:'nudge',review:'cheer',exit:'cheer'};
+const FOCUS_MODE_HELP={
+  blend:'What this means: Blend mixes your pinned days with automated improvement targets so open-ended practice covers both.',
+  auto:'What this means: Auto picks days from recent learner strengths and improvements only — parent pins are ignored.',
+  manual:'What this means: Manual uses only the days you pin below (falls back to auto if none are pinned).'
+};
 function defaultSettings(){return{practiceTarget:10,masteryReplayTarget:20,focusMode:'blend',focusTopicIds:[]}}
 function defaultState(){return{xp:0,coins:0,total:0,correct:0,streak:0,best:0,mastery:{},attempts:{},cleared:{},dayClearCoinClaimed:{},day:0,settings:defaultSettings(),errorLog:[],practiceMs:0,sessionDate:null,nextBreakMin:BREAK_EVERY_MIN,masteryPracticeByDay:{},masterySessionMs:0,realm:[],pets:[DEFAULT_PET_ID],petSkins:[],activePet:DEFAULT_PET_ID,activePetSkin:null,breaksCompleted:0,parentCoinAwards:[]}}
 let S=loadState(),current=0,sessionMode='learn',boostMode=false,q=null,exit={left:0,correct:0},bench=null,timer=null,onBreak=false,breakTimer=null,breakEndsAt=null,breakBonusAwarded=false,toastTimer=null,previewTimer=null,petReactTimer=null,pendingPetReact=null,realmPreview=null,realmTab='pets',runningSince=null,masteryRunningSince=null,lastActiveAt=Date.now(),sessionPracticeStart=0,claimInFlight=false,cheerTimer=null,breakPrevFocus=null;
@@ -368,7 +373,7 @@ function setPhase(p,opts={}){
   else petReact(PHASE_PET_REACT[p]||'idle');
 }
 function button(label,fn,cls='btn'){const b=document.createElement('button');b.type='button';b.className=cls;b.textContent=label;b.onclick=fn;return b}
-function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{const ok=a===w.a;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;petReact(ok?'celebrate':'encourage');$('feedback').append(button('Continue to today’s story →',showLearn))})}
+function showWarmup(){setPhase('warmup');$('feedback').innerHTML='';$('interaction').innerHTML='';if(current===0){$('lessonBody').innerHTML='<h2>🌞 Day 1 Warm-up</h2><p class="concept">No previous lesson yet. Today starts with the foundations.</p>';$('interaction').append(button('Begin today’s lesson →',showLearn));return}const prev=TOPICS[current-1],today=TOPICS[current],w=generateProblem(prev.id);$('lessonBody').innerHTML=`<h2>⚡ Quick Review</h2><p class="concept bridge">Last time: ${esc(prev.title)}. Today: ${esc(today.title)}.</p><p class="concept">Before today’s lesson, recall yesterday’s skill:</p><h3>${w.q}</h3>`;renderAnswers(w,a=>{const ok=a===w.a;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Nice recall. ${w.explain}</div>`:`<div class="feedback bad">💡 Review: ${w.explain}</div>`;petReact(ok?'celebrate':'encourage');$('feedback').append(button('Continue to today’s story →',showLearn))})}
 function showLearn(){setPhase('learn');const t=TOPICS[current];$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">📖 STORY</p><h2>${t.story}</h2>${t.teach}`;$('interaction').append(button('🎬 Need a slower GIF walkthrough →',showBoostPath,'btn alt'));$('interaction').append(button('I watched & understand — guided practice →',showGuided))}
 function showGuided(){setPhase('guided');const g=TOPICS[current].guided;$('lessonBody').innerHTML=`<h2>🖐️ Guided Practice</h2><p class="concept">${g.prompt}</p><p class="small">Drag a tile into the target, or tap / press a tile (keyboard Enter or Space).</p>`;$('feedback').innerHTML='';$('interaction').innerHTML=`<div class="tokens" role="group" aria-label="Answer tiles">${g.tokens.map(x=>`<button type="button" class="token" draggable="true" data-v="${esc(x)}" aria-label="Answer ${esc(x)}">${x}</button>`).join('')}</div><div class="targets"><div id="dropTarget" class="target" aria-label="Drop or tap answer target">DROP / TAP ANSWER</div></div>`;const check=v=>{if(v===g.answer){$('dropTarget').textContent=v;$('feedback').innerHTML=`<div class="feedback good">✨ Correct. ${g.explain}</div><div class="celebrate">⭐ ✅ 🎉</div>`;petReact('celebrate');$('feedback').append(button('Start independent practice →',showPractice))}else{$('feedback').innerHTML=`<div class="feedback bad">🌱 Not yet. ${g.explain} Try again until you make it right.</div><div class="retry">🤔 ↩️ 💡</div>`;petReact('encourage')}};document.querySelectorAll('.token').forEach(el=>{el.onclick=()=>check(el.dataset.v);el.ondragstart=e=>e.dataTransfer.setData('text',el.dataset.v)});$('dropTarget').ondragover=e=>e.preventDefault();$('dropTarget').ondrop=e=>{e.preventDefault();check(e.dataTransfer.getData('text'))}}
 function showMasteryRecap(){setPhase('learn');const t=TOPICS[current],goal=practiceGoal();$('feedback').innerHTML='';$('interaction').innerHTML='';$('lessonBody').innerHTML=`<p class="small">♻️ MASTERY REPLAY · Union County / NC Grade 7 retention</p><h2>${t.icon} Day ${current+1} Recap: ${t.title}</h2><p class="concept">${t.story}</p>${t.teach}<p class="small">Parent/Admin mastery target for completed days: <b>${goalLabel(goal)}</b> questions this visit (advanced 2·4·4 mix). Keep skills sharp without redoing the unlock gate.</p>`;$('interaction').append(button('🎬 GIF boost steps first →',showBoostPath,'btn alt'));$('interaction').append(button('Start advanced mastery practice →',showPractice))}
@@ -392,19 +397,31 @@ function showPractice(){
 }
 function benchTitle(){if(bench.kind==='open')return`${OPEN_ENDED_ICON} Open-Ended Mastery — Mixed 20-Day Challenge`;if(bench.kind==='replay')return`♻️ Advanced Mastery Replay — Day ${current+1}`;return`⚔️ Daily Benchmark — 10 Questions`}
 function benchMixNote(){if(bench.kind==='learn')return`3 standard · 4 multi-step · 3 NC real-world • ✏️ No calculator`;return`${MASTERY_LEVEL_COUNTS.standard} standard · ${MASTERY_LEVEL_COUNTS.complex} multi-step · ${MASTERY_LEVEL_COUNTS.word} NC real-world (advanced retention mix) • ✏️ No calculator`}
-function showBenchQuestion(){setPhase('practice');const id=activeTopicId();q=bench.items[bench.idx];const meta=LEVEL_META[q.level],target=goalLabel(practiceGoal());const topicHint=q.topicId?TOPICS.find(t=>t.id===q.topicId):null;$('lessonBody').innerHTML=`<h2>${benchTitle()}</h2><p class="small">${benchMixNote()}</p><p class="benchtag ${q.level}">${meta.emoji} ${meta.tag}</p><p class="small">Question ${bench.idx+1} of ${CORE_DAILY_COUNT} • Session practice ${S.attempts[id].n-sessionPracticeStart}/${target} • Lifetime ${S.attempts[id].n} • Mastery ${sessionMode==='open'?'mixed':S.mastery[id]+'%'}${topicHint?` • From Day ${TOPICS.indexOf(topicHint)+1}: ${esc(topicHint.title)}`:''}</p>${q.location?`<p class="small">📍 ${esc(q.location)}, NC scenario</p>`:''}<h3 class="qtext">${q.q}</h3>${q.strategy?`<p class="small">🧭 Strategy: ${esc(q.strategy)}</p>`:''}`;$('feedback').innerHTML='';renderAnswers(q,benchCheck)}
+function showBenchQuestion(){setPhase('practice');const id=activeTopicId();q=bench.items[bench.idx];const meta=LEVEL_META[q.level],target=goalLabel(practiceGoal());const topicHint=q.topicId?TOPICS.find(t=>t.id===q.topicId):null;const unlockNote=sessionMode==='learn'?`<p class="small unlockProgress">${esc(unlockProgressLine(S.mastery[id],S.cleared[id],PASS_MASTERY))}</p>`:'';$('lessonBody').innerHTML=`<h2>${benchTitle()}</h2><p class="small">${benchMixNote()}</p><p class="benchtag ${q.level}">${meta.emoji} ${meta.tag}</p><p class="small">Question ${bench.idx+1} of ${CORE_DAILY_COUNT} • Session practice ${S.attempts[id].n-sessionPracticeStart}/${target} • Lifetime ${S.attempts[id].n} • Mastery ${sessionMode==='open'?'mixed':S.mastery[id]+'%'}${topicHint?` • From Day ${TOPICS.indexOf(topicHint)+1}: ${esc(topicHint.title)}`:''}</p>${unlockNote}${q.location?`<p class="small">📍 ${esc(q.location)}, NC scenario</p>`:''}<h3 class="qtext">${q.q}</h3>${q.strategy?`<p class="small">🧭 Strategy: ${esc(q.strategy)}</p>`:''}`;$('feedback').innerHTML='';renderAnswers(q,benchCheck)}
 function renderAnswers(problem,onPick){$('interaction').innerHTML='<div class="answers" role="group" aria-label="Answer choices"></div>';const box=$('interaction').firstChild;problem.choices.forEach(v=>box.append(button(v,()=>onPick(String(v)),'answer')))}
 function creditAttempt(id,ok,problem){
   const a=S.attempts[id];a.n++;S.total++;
   if(ok){
     a.c++;S.correct++;bench.correct++;
+    const prevXp=S.xp;
     const reward=awardCorrectRewards(S);
     S.mastery[id]=updateMastery(S.mastery[id],true);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],true);
-    const multNote=reward.mult>1?` · streak ×${reward.mult}`:'';
-    $('feedback').innerHTML=`<div class="feedback good">🎉 Correct! ${problem.explain} +${reward.xp} XP · +${reward.coins} 🪙${multNote}</div><div class="celebrate">🌟 🎉 ✅</div>`;
-  }else{S.streak=0;S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});$('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div><div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts" role="group" aria-label="What tripped you up"><button type="button" data-e="Sign">Sign</button><button type="button" data-e="Operation">Operation</button><button type="button" data-e="Arithmetic">Arithmetic</button><button type="button" data-e="Not sure">Not sure</button></div>`;document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'})}
+    const burst=formatCoinBurstHtml(reward.coins,reward.mult);
+    $('feedback').innerHTML=`<div class="feedback good">🎉 Correct! ${problem.explain}<div class="coinBurstRow">${burst} <span class="xpBurst">+${reward.xp} XP</span></div></div><div class="celebrate">🌟 🎉 ✅</div>`;
+    const level=heroTitleLevelUp(prevXp,S.xp);
+    if(level.leveled)showToast(`🏆 Hero title leveled up! ${level.from} → ${level.to}`,5500);
+  }else{
+    const hadStreak=(Number(S.streak)||0)>0;
+    S.streak=0;
+    S.mastery[id]=updateMastery(S.mastery[id],false);if(problem.topicId&&problem.topicId!==id)S.mastery[problem.topicId]=updateMastery(S.mastery[problem.topicId],false);
+    const entry={topic:problem.topicId||id,when:new Date().toISOString(),question:problem.q,answer:problem.a,level:problem.level,explain:problem.explain};
+    S.errorLog.push(entry);bench.missed.push({number:bench.idx+1,...entry});
+    const streakNote=hadStreak?`<p class="streakReset small">Streak reset — keep going!</p>`:'';
+    $('feedback').innerHTML=`<div class="feedback bad">💡 Not yet. Correct answer: ${esc(String(problem.a))}. ${problem.explain}</div>${streakNote}<div class="retry">🧠 🔁</div><p><b>What tripped you up?</b></p><div class="errorOpts" role="group" aria-label="What tripped you up"><button type="button" data-e="Sign">Sign</button><button type="button" data-e="Operation">Operation</button><button type="button" data-e="Arithmetic">Arithmetic</button><button type="button" data-e="Not sure">Not sure</button></div>`;
+    document.querySelectorAll('[data-e]').forEach(b=>b.onclick=()=>{S.errorLog[S.errorLog.length-1].reason=b.dataset.e;save();b.textContent='Saved ✓'});
+  }
 }
-function benchCheck(v){const id=activeTopicId(),ok=String(v)===String(q.a);creditAttempt(id,ok,q);save();setPhase('practice',{answerReact:ok?'celebrate':'encourage'});const last=bench.idx>=bench.items.length-1;$('feedback').append(button(last?'See error analysis →':'Next question →',()=>{if(last)benchSummary();else{bench.idx++;showBenchQuestion()}}))}
+function benchCheck(v){const id=activeTopicId(),ok=String(v)===String(q.a);creditAttempt(id,ok,q);save();const react=ok?((Number(S.streak)||0)>=3?'celebrate':'cheer'):'encourage';setPhase('practice',{answerReact:react});const last=bench.idx>=bench.items.length-1;$('feedback').append(button(last?'See error analysis →':'Next question →',()=>{if(last)benchSummary();else{bench.idx++;showBenchQuestion()}}))}
 function sessionGoalMet(){const goal=practiceGoal(),gained=S.attempts[activeTopicId()].n-sessionPracticeStart;return goal===0||gained>=goal}
 function insightSummaryHtml(insights){
   const weak=insights.improvements.slice(0,3).map(r=>`Day ${TOPICS.indexOf(r.topic)+1}: ${r.topic.title}`).join(' · ')||'none yet';
@@ -442,10 +459,42 @@ function benchSummary(){
   if(!met)$('feedback').innerHTML=`<p class="small">Keep going to reach the Parent/Admin mastery target of ${goal} questions this visit — then practice as long as you like.</p>`;
 }
 function startExit(){setPhase('exit');exit={left:3,correct:0};nextExitQuestion()}
-function nextExitQuestion(){if(exit.left<=0)return finishExit();q=generateProblem(TOPICS[current].id);$('lessonBody').innerHTML=`<div class="exit"><h2>🎫 Exit Ticket</h2><p>Question ${4-exit.left} of 3</p><p class="concept">${q.q}</p></div>`;$('feedback').innerHTML='';renderAnswers(q,v=>{const ok=String(v)===String(q.a);if(ok)exit.correct++;exit.left--;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Correct. ${q.explain}</div>`:`<div class="feedback bad">💡 ${q.explain}</div>`;$('feedback').append(button(exit.left?'Next Exit Question →':'Finish Exit Ticket →',nextExitQuestion))})}
+function nextExitQuestion(){if(exit.left<=0)return finishExit();q=generateProblem(TOPICS[current].id);const id=TOPICS[current].id;$('lessonBody').innerHTML=`<div class="exit"><h2>🎫 Exit Ticket</h2><p>Question ${4-exit.left} of 3</p><p class="small unlockProgress">${esc(unlockProgressLine(S.mastery[id],S.cleared[id],PASS_MASTERY))}</p><p class="concept">${q.q}</p></div>`;$('feedback').innerHTML='';renderAnswers(q,v=>{const ok=String(v)===String(q.a);if(ok)exit.correct++;exit.left--;$('feedback').innerHTML=ok?`<div class="feedback good">✅ Correct. ${q.explain}</div>`:`<div class="feedback bad">💡 ${q.explain}</div>`;petReact(ok?(exit.correct>=2?'celebrate':'cheer'):'encourage');$('feedback').append(button(exit.left?'Next Exit Question →':'Finish Exit Ticket →',nextExitQuestion))})}
 function finishExit(){const id=TOPICS[current].id,passed=exit.correct>=2&&S.mastery[id]>=PASS_MASTERY;if(passed){S.cleared[id]=true;const clearReward=awardDayClearRewards(S,id);save();setPhase('review');const allDone=allTopicsCleared(S);$('lessonBody').innerHTML=`<h2>🏆 Day ${current+1} Cleared!</h2><p class="concept">Exit Ticket: ${exit.correct}/3. Mastery: ${S.mastery[id]}%.</p><p class="small">Rewards: +${clearReward.xp} XP · +${clearReward.coins} 🪙 — spend coins in My Realm!</p><p>${allDone?`Amazing — all 20 days are complete! The ${OPEN_ENDED_TITLE} is now unlocked for mixed advanced practice forever.`:'You unlocked the next learning day. Older concepts will return in future warm-ups.'}</p><div class="celebrate">🏆 ⭐ 🎉</div>`;$('interaction').innerHTML='';$('feedback').innerHTML='';$('interaction').append(button(allDone?`Enter ${OPEN_ENDED_TITLE} →`:(current<TOPICS.length-1?'Return to roadmap →':'Enter Endless Mastery →'),()=>{if(allDone)startOpenEnded();else{noteActivity();resumePractice();save();go('home')}}));$('interaction').append(button('Extra practice on this skill',()=>{sessionMode='replay';sessionPracticeStart=S.attempts[id].n;showMasteryRecap()},'btn alt'))}else{$('lessonBody').innerHTML=`<h2>🔁 Review Loop</h2><p class="concept">Exit Ticket: ${exit.correct}/3. Mastery: ${S.mastery[id]}%.</p><p>You need at least 2 of 3 on the exit ticket and ${PASS_MASTERY}% mastery. We’ll loop back through practice instead of unlocking too soon.</p>`;$('interaction').innerHTML='';$('feedback').innerHTML='';$('interaction').append(button('Practice, then retry Exit Ticket →',showPractice))}}
-function openParent(){go('parent');$('parentLock').classList.remove('hidden');$('dashboard').classList.add('hidden');$('pinMsg').textContent='';$('parentPin').value='';$('pinIntro').textContent=localStorage.mq7ParentPin?'Enter your 4-digit Parent / Admin PIN.':'Create a 4-digit Parent / Admin PIN for this device.';$('practiceTarget').value=String(S.settings.practiceTarget);$('masteryReplayTarget').value=String(S.settings.masteryReplayTarget);$('focusMode').value=S.settings.focusMode||'blend'}
-function parentAuth(){const p=$('parentPin').value.trim();if(!/^\d{4}$/.test(p))return $('pinMsg').textContent='Use exactly 4 digits.';if(!localStorage.mq7ParentPin)localStorage.mq7ParentPin=p;if(p!==localStorage.mq7ParentPin)return $('pinMsg').textContent='Incorrect PIN.';$('parentLock').classList.add('hidden');$('dashboard').classList.remove('hidden');renderDashboard()}
+function openParent(){
+  go('parent');
+  $('parentLock').classList.remove('hidden');
+  $('dashboard').classList.add('hidden');
+  $('pinMsg').textContent='';
+  $('parentPin').value='';
+  const creating=!localStorage.mq7ParentPin;
+  const wrap=$('pinConfirmWrap');
+  if(wrap){wrap.classList.toggle('hidden',!creating);const conf=$('parentPinConfirm');if(conf)conf.value=''}
+  $('pinIntro').textContent=creating?'Create a 4-digit Parent / Admin PIN for this device (enter it twice).':'Enter your 4-digit Parent / Admin PIN.';
+  $('practiceTarget').value=String(S.settings.practiceTarget);
+  $('masteryReplayTarget').value=String(S.settings.masteryReplayTarget);
+  $('focusMode').value=S.settings.focusMode||'blend';
+  updateFocusModeHelp();
+}
+function parentAuth(){
+  const p=$('parentPin').value.trim();
+  if(!/^\d{4}$/.test(p))return $('pinMsg').textContent='Use exactly 4 digits.';
+  if(!localStorage.mq7ParentPin){
+    const c=($('parentPinConfirm')?.value||'').trim();
+    if(!/^\d{4}$/.test(c))return $('pinMsg').textContent='Confirm your new PIN with the same 4 digits.';
+    if(p!==c)return $('pinMsg').textContent='PINs do not match. Enter the same 4 digits twice.';
+    localStorage.mq7ParentPin=p;
+  }
+  if(p!==localStorage.mq7ParentPin)return $('pinMsg').textContent='Incorrect PIN.';
+  $('parentLock').classList.add('hidden');
+  $('dashboard').classList.remove('hidden');
+  renderDashboard();
+}
+function updateFocusModeHelp(){
+  const el=$('focusModeHelp');if(!el)return;
+  const mode=$('focusMode')?.value||S.settings.focusMode||'blend';
+  el.textContent=FOCUS_MODE_HELP[mode]||FOCUS_MODE_HELP.blend;
+}
 function renderFocusPins(){
   const pins=new Set(S.settings.focusTopicIds||[]);
   $('focusPins').innerHTML=`<p class="small"><b>Pin days for fine-tuning</b> (used in blend/manual open-ended mode):</p>`+TOPICS.map((t,i)=>`<label><input type="checkbox" data-focus="${t.id}" ${pins.has(t.id)?'checked':''}> ${t.icon} Day ${i+1}: ${esc(t.title)}</label>`).join('');
@@ -459,6 +508,16 @@ function renderDashboard(){
   $('overallBar').style.width=pct+'%';
   const barWrap=$('overallBar')?.parentElement;if(barWrap?.getAttribute('role')==='progressbar'){barWrap.setAttribute('aria-valuenow',String(pct));barWrap.setAttribute('aria-valuetext',`${pct}% of days completed`)}
   $('overallCap').innerHTML=allDone?`<b>All ${TOPICS.length} days completed (${pct}%)</b> • Next: ${OPEN_ENDED_ICON} ${esc(OPEN_ENDED_TITLE)} (${S.attempts[OPEN_ENDED_ID].n} practices) · Focus: ${esc(focusModeLabel(S.settings.focusMode))}`:`<b>${daysDone} of ${TOPICS.length} days completed (${pct}%)</b> • Next up: Day ${ni+1} — ${esc(TOPICS[ni].title)}`;
+  const since=daysSinceLastPractice(S);
+  const sinceEl=$('daysSincePractice');
+  if(sinceEl)sinceEl.textContent=since==null?'Days since last practice: not enough local timestamps yet.':(since===0?'Last practiced: today.':'Days since last practiced: '+since+'.');
+  const spend=realmSpendSummary(S);
+  const spendEl=$('realmSpendSummary');
+  if(spendEl){
+    spendEl.innerHTML=spend.count
+      ?`<p><b>${spend.spent} 🪙</b> spent on ${spend.count} owned item${spend.count===1?'':'s'} · <b>${spend.coinsOnHand} 🪙</b> on hand</p><ul class="awardLogList">${spend.lines.map(l=>`<li>${l.icon||''} ${esc(l.name)} — ${l.cost===0?'free starter':l.cost+' 🪙'}</li>`).join('')}</ul>`
+      :`<p class="small">No realm purchases yet. On-hand coins: <b>${spend.coinsOnHand} 🪙</b>.</p>`;
+  }
   const trophies=computeTrophies(S);
   const trophiesEl=$('trophies');if(trophiesEl)trophiesEl.innerHTML=trophies.map(t=>`<div class="coachItem"><b>${t.icon} ${esc(t.title)}</b><span class="small">${esc(t.detail)}</span></div>`).join('');
   const awardLog=$('parentCoinAwardLog');
@@ -473,7 +532,7 @@ function renderDashboard(){
   $('improvePlan').innerHTML=`<div class="parentNote">👁 Parent/Admin view is read-only. Practice / GIF boost buttons are student-only on the home coaching plan so adults reviewing here do not start practice or change progress.</div>`+(insights.plan.filter(p=>p.day!=null).length?insights.plan.filter(p=>p.day!=null).map(p=>improvementPreviewHtml(TOPICS[p.day-1],p.action,{forParent:true})).join(''):insights.plan.map(p=>`<div class="coachItem"><b>${esc(p.title||'Plan')}</b><span class="small">${esc(p.action)}</span></div>`).join(''));
   const masteryRows=masteryLogRows(S,sessionMode==='open'?masteryRunningSince:null);
   $('masteryTimeLog').innerHTML=masteryRows.length?`<p class="small">Active open-ended mastery practice only (breaks, hidden tab, and 5+ min away do not count). Visit stopwatch resets each time the student starts mastery practice; daily totals keep adding. 20-minute healthy-break rule still applies.</p><table class="masteryTimeTable"><thead><tr><th>Mastery day</th><th>Date</th><th>Active practice</th></tr></thead><tbody>${masteryRows.map(r=>`<tr><td>${esc(r.dayLabel)}</td><td>${esc(r.date)}</td><td><b>${esc(r.label)}</b></td></tr>`).join('')}</tbody></table>`:'<p class="small">No open-ended mastery practice time logged yet. After Day 20 unlocks, active practice minutes appear here by calendar day (Day 21, Day 22, …).</p>';
-  $('masteryReview').innerHTML=TOPICS.map((t,i)=>{const u=topicUnlocked(S,i),done=S.cleared[t.id]&&S.mastery[t.id]>=PASS_MASTERY,a=S.attempts[t.id],accPct=a.n?Math.round(a.c/a.n*100):null;return`<div class="focusItem"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="tag">${S.mastery[t.id]}%${done?' ✓':''}${accPct!=null?` · ${accPct}%`:''}</span></div>`}).join('');
+  $('masteryReview').innerHTML=TOPICS.map((t,i)=>{const u=topicUnlocked(S,i),done=S.cleared[t.id]&&S.mastery[t.id]>=PASS_MASTERY,a=S.attempts[t.id],accPct=a.n?Math.round(a.c/a.n*100):null,exitBadge=exitTicketBadge(S.cleared[t.id]);return`<div class="focusItem"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="tag">${S.mastery[t.id]}% · ${exitBadge}${done?' · cleared':''}${accPct!=null?` · ${accPct}% acc`:''}</span></div>`}).join('');
   $('syllabusGaps').innerHTML=SYLLABUS_GAPS.map(g=>`<div class="gapItem"><b>${esc(g.domain)}</b><span class="small">${esc(g.missing)}</span></div>`).join('');
   const counts={},reasons={};for(const e of S.errorLog){counts[e.topic]=(counts[e.topic]||0)+1;if(e.reason)reasons[e.reason]=(reasons[e.reason]||0)+1}
   if(!S.errorLog.length){$('focus').innerHTML='<div class="feedback good">🌟 No mistakes logged yet — great start! Focus areas will appear here as the learner practices.</div>'}
@@ -482,7 +541,8 @@ function renderDashboard(){
     const items=top.map(([id,n])=>{const idx=TOPICS.findIndex(x=>x.id===id),t=TOPICS[idx];if(!t)return'';return`<div class="focusItem"><span class="skillName">${t.icon} Day ${idx+1}: ${esc(t.title)}</span><span class="tag">${n} miss${n===1?'':'es'}</span></div>`}).join('');
     $('focus').innerHTML=`<p class="small">Topics with the most missed questions${topReason?` • most common slip-up: <b>${esc(topReason[0])}</b>`:''}. Ask the student to use their coaching plan Practice button (parent view stays read-only).</p>${items}`;
   }
-  $('skills').innerHTML=WEEKS.map(w=>{const rows=TOPICS.map((t,i)=>({t,i})).filter(o=>o.t.week===w.week).map(({t,i})=>{const m=S.mastery[t.id],u=topicUnlocked(S,i),done=S.cleared[t.id]&&m>=PASS_MASTERY;return`<div class="skillRow ${done?'done':''} ${u?'':'locked'}"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="skillPct">${m}%${done?' ✓':''}</span><div class="bar"><i style="width:${m}%"></i></div></div>`}).join('');return`<div class="weekBlock"><h3>Week ${w.week}: ${esc(w.title)} <small>${esc(w.standard)}</small></h3>${rows}</div>`}).join('');
+  $('skills').innerHTML=WEEKS.map(w=>{const rows=TOPICS.map((t,i)=>({t,i})).filter(o=>o.t.week===w.week).map(({t,i})=>{const m=S.mastery[t.id],u=topicUnlocked(S,i),done=S.cleared[t.id]&&m>=PASS_MASTERY,exitBadge=exitTicketBadge(S.cleared[t.id]);return`<div class="skillRow ${done?'done':''} ${u?'':'locked'}"><span class="skillName">${u?t.icon:'🔒'} Day ${i+1}: ${esc(t.title)}</span><span class="skillPct">${m}% · ${exitBadge}</span><div class="bar"><i style="width:${m}%"></i></div></div>`}).join('');return`<div class="weekBlock"><h3>Week ${w.week}: ${esc(w.title)} <small>${esc(w.standard)}</small></h3>${rows}</div>`}).join('');
+  updateFocusModeHelp();
   renderFocusPins();
 }
 function applyParentCoinAward(amount,{confirmCustom=false}={}){
@@ -496,11 +556,20 @@ function applyParentCoinAward(amount,{confirmCustom=false}={}){
   showToast(`Awarded ${res.coins} 🪙 · student now has ${res.total} coins (cosmetic only)`,4500);
 }
 function exportProgress(){const blob=new Blob([JSON.stringify(S,null,2)],{type:'application/json'}),a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download='mathquest7-progress.json';a.click();setTimeout(()=>URL.revokeObjectURL(a.href),1000)}
-function changePin(){const p=prompt('New 4-digit parent PIN');if(/^\d{4}$/.test(p)){localStorage.mq7ParentPin=p;alert('PIN updated.')}else if(p!==null)alert('PIN must be exactly 4 digits.')}
+function changePin(){
+  const p=prompt('New 4-digit parent PIN');
+  if(p===null)return;
+  if(!/^\d{4}$/.test(p)){alert('PIN must be exactly 4 digits.');return}
+  const c=prompt('Confirm new 4-digit parent PIN');
+  if(c===null)return;
+  if(p!==c){alert('PINs do not match. Try again.');return}
+  localStorage.mq7ParentPin=p;
+  alert('PIN updated.');
+}
 function resetLearning(){if(confirm('Reset learning progress but keep parent PIN and practice settings?')){const settings=S.settings;S=defaultState();S.settings=settings;save();location.reload()}}
 async function clearAll(){if(!confirm('Clear ALL MathQuest data from this browser/device? This cannot be undone.'))return;Object.keys(localStorage).filter(k=>k.toLowerCase().startsWith('mq7')||k.toLowerCase().includes('mathquest')).forEach(k=>localStorage.removeItem(k));if('caches'in window)for(const k of await caches.keys())if(k.toLowerCase().includes('mathquest'))await caches.delete(k);alert('All MathQuest local data cleared.');location.reload()}
 function esc(s){return String(s).replaceAll('&','&amp;').replaceAll('<','&lt;').replaceAll('>','&gt;').replaceAll('"','&quot;')}
-$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;document.querySelectorAll('[data-award-coins]').forEach(b=>b.onclick=()=>applyParentCoinAward(b.dataset.awardCoins));const awardBtn=$('awardCoinsBtn');if(awardBtn)awardBtn.onclick=()=>applyParentCoinAward($('awardCoinsAmt')?.value,{confirmCustom:true});$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{closeBreakOverlay();noteActivity();resumePractice()};
+$('continueBtn').onclick=continueJourney;$('parentBtn').onclick=openParent;$('mapBtn').onclick=()=>go('home');$('studentBtn').onclick=()=>go('home');$('pinOpen').onclick=parentAuth;$('practiceTarget').onchange=e=>{S.settings.practiceTarget=Number(e.target.value);save()};$('masteryReplayTarget').onchange=e=>{S.settings.masteryReplayTarget=Number(e.target.value);save()};$('focusMode').onchange=e=>{S.settings.focusMode=e.target.value;save();updateFocusModeHelp();showToast(`Open-ended focus mode: ${focusModeLabel(S.settings.focusMode)}`,4000)};$('exportBtn').onclick=exportProgress;$('changePinBtn').onclick=changePin;$('resetBtn').onclick=resetLearning;$('clearBtn').onclick=clearAll;document.querySelectorAll('[data-award-coins]').forEach(b=>b.onclick=()=>applyParentCoinAward(b.dataset.awardCoins));const awardBtn=$('awardCoinsBtn');if(awardBtn)awardBtn.onclick=()=>applyParentCoinAward($('awardCoinsAmt')?.value,{confirmCustom:true});$('breakOverlay').querySelectorAll('[data-min]').forEach(b=>b.onclick=()=>startBreakCountdown(Number(b.dataset.min)));$('breakBack').onclick=()=>{closeBreakOverlay();noteActivity();resumePractice()};
 document.addEventListener('visibilitychange',()=>{
   if(document.visibilityState==='hidden'){
     pausePractice();
